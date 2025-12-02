@@ -16,5 +16,55 @@ services:
       timeout: 5s
       retries: 5
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: streamvault-ollama
+    profiles: ["nvidia"]
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./docker:/docker-entrypoint.d:ro
+    entrypoint: ["/bin/bash", "/docker-entrypoint.d/ollama-entrypoint.sh"]
+    environment:
+      - OLLAMA_MODELS=${OLLAMA_MODELS:-qwen2.5:7b,llama3.2:3b}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ollama-amd:
+    image: ollama/ollama:rocm
+    container_name: streamvault-ollama
+    profiles: ["amd"]
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./docker:/docker-entrypoint.d:ro
+    entrypoint: ["/bin/bash", "/docker-entrypoint.d/ollama-entrypoint.sh"]
+    environment:
+      - OLLAMA_MODELS=${OLLAMA_MODELS:-qwen2.5:7b,llama3.2:3b}
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+      - render
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   postgres_data:
+  ollama_data:
