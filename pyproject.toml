@@ -21,6 +21,7 @@ dev = [
     "httpx>=0.28.0",
     "ruff>=0.14.7",
     "ty>=0.0.1a29",
+    "pre-commit>=4.0.0",
 ]
 
 [tool.ruff]

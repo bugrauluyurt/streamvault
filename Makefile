@@ -1,4 +1,4 @@
-.PHONY: install dev db-up db-down lint format typecheck check test test-cov migrate upgrade downgrade up
+.PHONY: install dev db-up db-down lint format typecheck check test test-cov migrate upgrade downgrade up hooks-install hooks-uninstall
 
 install:
 	uv sync
@@ -39,3 +39,9 @@ downgrade:
 	uv run alembic downgrade -1
 
 up: db-up upgrade dev
+
+hooks-install:
+	uv run pre-commit install
+
+hooks-uninstall:
+	uv run pre-commit uninstall
