@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     postgres_port: int = 5432
 
     ollama_host: str = "http://localhost:11434"
-    ollama_model: str = "qwen2.5:7b"
+    ollama_model: str = "qwen3:30b"
 
     @property
     def database_url(self) -> str:
