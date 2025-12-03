@@ -23,8 +23,9 @@ class LLMService:
         prompt: str | None = None,
     ) -> T:
         structured_llm = self.llm.with_structured_output(schema)
-        extraction_prompt = prompt or f"Extract the following data from this content:\n\n{content}"
-        result = await structured_llm.ainvoke(extraction_prompt)
+        base_prompt = prompt or "Extract the data from this content."
+        full_prompt = f"{base_prompt}\n\nContent:\n{content}"
+        result = await structured_llm.ainvoke(full_prompt)
         return cast(T, result)
 
     async def generate(self, prompt: str) -> str:
