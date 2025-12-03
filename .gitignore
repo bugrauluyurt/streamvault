@@ -60,3 +60,6 @@ dmypy.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Docker data
+data/
