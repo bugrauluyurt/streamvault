@@ -13,6 +13,8 @@ async def scrape_shows(request: ScrapeRequest) -> ScrapeResponse:
     url = origin.build_url(request.site_params.params.model_dump())
 
     scraper = ScraperService()
-    result = await scraper.extract_with_origin_detailed(url=url, origin=origin)
+    result = await scraper.extract_with_origin_detailed(
+        url=url, origin=origin, max_items=request.max_items
+    )
 
     return ScrapeResponse(shows=result.items, url=url)

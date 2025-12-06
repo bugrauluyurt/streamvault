@@ -24,6 +24,7 @@ class ScrapeRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     site_params: SiteParams
+    max_items: int | None = None
 
 
 class ScrapeGenre(BaseModel):
@@ -41,6 +42,14 @@ class ScrapeStreamingOption(BaseModel):
     price: str | None = None
     price_currency: str | None = None
     link: str | None = None
+
+
+class ScrapeCastMember(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    name: str
+    image_url: str | None = None
+    local_image_path: str | None = None
 
 
 class ScrapeShow(BaseModel):
@@ -63,7 +72,7 @@ class ScrapeShow(BaseModel):
     genres: list[ScrapeGenre] | None = None
     directors: list[str] | None = None
     creators: list[str] | None = None
-    cast: list[str] | None = None
+    cast: list[ScrapeCastMember] | None = None
     rating: int | None = None
     justwatch_rating: int | None = None
     rating_count: int | None = None

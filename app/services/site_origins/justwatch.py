@@ -7,7 +7,13 @@ from urllib.parse import urlencode
 from pydantic import BaseModel
 
 from app.schemas.enums import ShowType
-from app.schemas.scrape import ScrapeGenre, ScrapeShow, ScrapeShowList, ScrapeStreamingOption
+from app.schemas.scrape import (
+    ScrapeCastMember,
+    ScrapeGenre,
+    ScrapeShow,
+    ScrapeShowList,
+    ScrapeStreamingOption,
+)
 
 from .base import SiteOrigin
 
@@ -145,7 +151,7 @@ Return all shows found on the page."""
         genres = self._parse_genres(data.get("genre", []))
         directors = self._parse_directors(data.get("director", []))
         creators = self._parse_directors(data.get("author", []))
-        cast = self._parse_cast(data.get("actor", []))
+        cast = await self._extract_cast_with_images(page, data.get("actor", []))
         streaming_options = self._parse_streaming_options(data.get("potentialAction", []))
 
         aggregate_rating = data.get("aggregateRating", {})
@@ -219,8 +225,10 @@ Return all shows found on the page."""
                 result.append(name)
         return result
 
-    def _parse_cast(self, actors: list[dict[str, Any]]) -> list[str]:
-        result: list[str] = []
+    async def _extract_cast_with_images(
+        self, page: "Page", actors: list[dict[str, Any]]
+    ) -> list[ScrapeCastMember]:
+        actor_names: list[str] = []
         for entry in actors:
             if entry.get("@type") == "PerformanceRole":
                 actor_obj = entry.get("actor", {})
@@ -228,7 +236,29 @@ Return all shows found on the page."""
             else:
                 name = entry.get("name")
             if name:
-                result.append(name)
+                actor_names.append(name)
+
+        cast_elements = await page.query_selector_all(
+            "[data-testid='title-cast-item'], .title-credits__actor"
+        )
+
+        cast_with_images: dict[str, str] = {}
+        for element in cast_elements:
+            img = await element.query_selector("img")
+            name_el = await element.query_selector(
+                "[data-testid='title-cast-item-name'], .title-credits__actor-name"
+            )
+            if img and name_el:
+                name = await name_el.inner_text()
+                image_url = await img.get_attribute("src")
+                if name and image_url:
+                    cast_with_images[name.strip()] = image_url
+
+        result: list[ScrapeCastMember] = []
+        for name in actor_names:
+            image_url = cast_with_images.get(name)
+            result.append(ScrapeCastMember(name=name, image_url=image_url))
+
         return result
 
     def _parse_streaming_options(

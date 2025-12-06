@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import logging
+from pathlib import Path
 from typing import TypeVar
 
 import httpx
@@ -9,7 +10,7 @@ from playwright.async_api._generated import Browser
 from pydantic import BaseModel
 
 from app.core.config import settings
-from app.schemas.scrape import ScrapeShow, ScrapeShowList
+from app.schemas.scrape import ScrapeCastMember, ScrapeShow, ScrapeShowList
 from app.services.llm_service import LLMService
 from app.services.site_origins.base import SiteOrigin
 
@@ -21,30 +22,61 @@ T = TypeVar("T", bound=BaseModel)
 class ScraperService:
     def __init__(self, llm_service: LLMService | None = None):
         self.llm = llm_service or LLMService()
-        settings.shared_images_dir.mkdir(parents=True, exist_ok=True)
+        settings.image_tile_dir.mkdir(parents=True, exist_ok=True)
+        settings.image_background_dir.mkdir(parents=True, exist_ok=True)
+        settings.image_cast_dir.mkdir(parents=True, exist_ok=True)
 
-    async def _download_image(self, image_url: str, slug: str, source: str) -> str | None:
+    def _get_image_extension(self, image_url: str) -> str:
+        url_lower = image_url.lower()
+        if ".avif" in url_lower:
+            return ".avif"
+        if ".png" in url_lower:
+            return ".png"
+        if ".webp" in url_lower:
+            return ".webp"
+        return ".jpg"
+
+    async def _download_image(
+        self, image_url: str, slug: str, source: str, target_dir: Path | None = None
+    ) -> str | None:
         if not image_url or image_url.startswith("data:"):
             return None
 
-        ext = ".jpg"
-        if ".png" in image_url.lower():
-            ext = ".png"
-        elif ".webp" in image_url.lower():
-            ext = ".webp"
-
+        ext = self._get_image_extension(image_url)
         filename = f"{source}_{slug}{ext}"
-        filepath = settings.shared_images_dir / filename
+        directory = target_dir if target_dir else settings.image_tile_dir
+        filepath = directory / filename
 
         if filepath.exists():
-            return str(filepath)
+            return filename
 
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(image_url, timeout=30.0)
                 if response.status_code == 200:
                     filepath.write_bytes(response.content)
-                    return str(filepath)
+                    return filename
+        except Exception:
+            pass
+        return None
+
+    async def _download_cast_image(self, image_url: str, actor_name: str) -> str | None:
+        if not image_url or image_url.startswith("data:"):
+            return None
+
+        ext = self._get_image_extension(image_url)
+        filename = f"{actor_name.lower().replace(' ', '_')}{ext}"
+        filepath = settings.image_cast_dir / filename
+
+        if filepath.exists():
+            return filename
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(image_url, timeout=30.0)
+                if response.status_code == 200:
+                    filepath.write_bytes(response.content)
+                    return filename
         except Exception:
             pass
         return None
@@ -119,7 +151,7 @@ class ScraperService:
         return await self.llm.generate(full_prompt)
 
     async def extract_with_origin_detailed(
-        self, url: str, origin: SiteOrigin, max_concurrent: int = 5
+        self, url: str, origin: SiteOrigin, max_concurrent: int = 5, max_items: int | None = None
     ) -> ScrapeShowList:
         p, browser, context, page = await self._create_page()
         try:
@@ -167,6 +199,9 @@ class ScraperService:
                 if show.detail_url and show.slug and show.slug not in seen_slugs:
                     seen_slugs.add(show.slug)
                     unique_shows.append(show)
+
+            if max_items is not None:
+                unique_shows = unique_shows[:max_items]
 
             logger.info("Total items to fetch details: %d", len(unique_shows))
             logger.info("Images saved from main page: %d", images_saved)
@@ -228,6 +263,28 @@ class ScraperService:
                 "Detail fetch complete - Successful: %d, Failed: %d", successful_count, failed_count
             )
 
-            return ScrapeShowList(items=valid_shows)
+            async def download_cast_images(show: ScrapeShow) -> ScrapeShow:
+                if not show.cast:
+                    return show
+                updated_cast: list[ScrapeCastMember] = []
+                for member in show.cast:
+                    if member.image_url:
+                        local_path = await self._download_cast_image(member.image_url, member.name)
+                        updated_cast.append(
+                            ScrapeCastMember(
+                                name=member.name,
+                                image_url=member.image_url,
+                                local_image_path=local_path,
+                            )
+                        )
+                    else:
+                        updated_cast.append(member)
+                return show.model_copy(update={"cast": updated_cast})
+
+            cast_tasks = [download_cast_images(show) for show in valid_shows]
+            shows_with_cast_images = await asyncio.gather(*cast_tasks, return_exceptions=True)
+            final_shows = [s for s in shows_with_cast_images if isinstance(s, ScrapeShow)]
+
+            return ScrapeShowList(items=final_shows)
         finally:
             await self._cleanup(p, browser, context)

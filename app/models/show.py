@@ -40,6 +40,7 @@ class Show(Base):
     creators: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     cast: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     image_set: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    origin_urls: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     genres: Mapped[list["Genre"]] = relationship(secondary=show_genres)
     seasons: Mapped[list["Season"]] = relationship(back_populates="show")
