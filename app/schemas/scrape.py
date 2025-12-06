@@ -33,13 +33,27 @@ class ScrapeGenre(BaseModel):
     name: str
 
 
+class ScrapeStreamingOption(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    service_name: str
+    type: str | None = None
+    price: str | None = None
+    price_currency: str | None = None
+    link: str | None = None
+
+
 class ScrapeShow(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     item_type: ItemType = ItemType.SHOW
     show_type: ShowType
+    source: str | None = None
+    slug: str | None = None
+    detail_url: str | None = None
     imdb_id: str | None = None
     tmdb_id: str | None = None
+    wikidata_id: str | None = None
     title: str
     overview: str | None = None
     release_year: int | None = None
@@ -51,11 +65,17 @@ class ScrapeShow(BaseModel):
     creators: list[str] | None = None
     cast: list[str] | None = None
     rating: int | None = None
+    justwatch_rating: int | None = None
+    rating_count: int | None = None
+    content_rating: str | None = None
+    country_of_origin: str | None = None
     season_count: int | None = None
     episode_count: int | None = None
     runtime: int | None = None
     image_url: str | None = None
+    local_image_path: str | None = None
     streaming_services: list[str] | None = None
+    streaming_options: list[ScrapeStreamingOption] | None = None
 
 
 class ScrapeShowList(BaseModel):

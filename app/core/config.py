@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +18,8 @@ class Settings(BaseSettings):
 
     ollama_host: str = "http://localhost:11434"
     ollama_model: str = "qwen3:30b"
+
+    shared_images_dir: Path = Path("/app/shared/images")
 
     @property
     def database_url(self) -> str:

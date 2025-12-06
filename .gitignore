@@ -63,3 +63,6 @@ Thumbs.db
 
 # Docker data
 data/
+
+# Shared data (downloaded images, etc.)
+shared/
