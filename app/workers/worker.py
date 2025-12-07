@@ -4,6 +4,8 @@ import time
 import traceback
 import uuid
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.config import settings
 from app.core.database import async_session_factory
 from app.enums import JobType
@@ -33,7 +35,7 @@ class Worker:
 
                     if job:
                         self._current_job = job
-                        await self._process_job(job, queue)
+                        await self._process_job(job, queue, session)
                         self._current_job = None
                         await session.commit()
                     else:
@@ -48,7 +50,7 @@ class Worker:
 
         logger.info(f"[{self.worker_id}] Worker stopped")
 
-    async def _process_job(self, job: Job, queue: QueueService) -> None:
+    async def _process_job(self, job: Job, queue: QueueService, session: AsyncSession) -> None:
         job_type = JobType(job.job_type)
         handler = HANDLERS.get(job_type)
 
@@ -65,7 +67,7 @@ class Worker:
         start_time = time.perf_counter()
 
         try:
-            result = await handler(job)
+            result = await handler(job, session)
             elapsed = time.perf_counter() - start_time
             await queue.complete_job(job.id, result)
             logger.info(

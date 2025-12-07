@@ -13,7 +13,7 @@ class ScrapedShow(Base):
     __tablename__ = "scraped_shows"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tmdb_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    tmdb_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     details: Mapped[dict] = mapped_column(JSONB, nullable=False)
     type: Mapped[ScrapedType] = mapped_column(String, nullable=False)

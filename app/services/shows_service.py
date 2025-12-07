@@ -1,6 +1,5 @@
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.enums import ShowType
 from app.models import ScrapedShow, ScrapedTopShow
@@ -46,7 +45,6 @@ class ShowsService:
 
         movies_stmt = (
             select(ScrapedTopShow)
-            .options(selectinload(ScrapedTopShow.show))
             .where(
                 ScrapedTopShow.batch_sequence == latest_batch,
                 ScrapedTopShow.show_type == ShowType.MOVIE,
@@ -59,7 +57,6 @@ class ShowsService:
 
         series_stmt = (
             select(ScrapedTopShow)
-            .options(selectinload(ScrapedTopShow.show))
             .where(
                 ScrapedTopShow.batch_sequence == latest_batch,
                 ScrapedTopShow.show_type == ShowType.SERIES,

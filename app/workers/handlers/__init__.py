@@ -1,11 +1,13 @@
 from collections.abc import Awaitable, Callable
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.enums import JobType
 from app.models import Job
 
 from .scrape_handlers import handle_scrape_popular, handle_scrape_top_ten
 
-JobHandler = Callable[[Job], Awaitable[dict]]
+JobHandler = Callable[[Job, AsyncSession], Awaitable[dict]]
 
 HANDLERS: dict[JobType, JobHandler] = {
     JobType.SCRAPE_TOP_TEN: handle_scrape_top_ten,
