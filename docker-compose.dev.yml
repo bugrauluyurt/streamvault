@@ -17,44 +17,58 @@ services:
       retries: 5
 
   api:
-    build: .
-    container_name: streamvault-api
-    network_mode: host
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: streamvault-api-dev
     depends_on:
       db:
         condition: service_healthy
+    ports:
+      - "8000:8000"
     environment:
-      POSTGRES_HOST: localhost
-      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-streamvault}
-      OLLAMA_HOST: ${OLLAMA_HOST:-http://localhost:11434}
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://10.0.0.139:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:30b}
       TMDB_API_KEY: ${TMDB_API_KEY:-}
       SHARED_DIR: /app/data/shared
     volumes:
+      - ./app:/app/app:ro
+      - ./alembic.ini:/app/alembic.ini:ro
       - ./data/shared:/app/data/shared
-    command: ["api"]
+    command: >
+      sh -c "uv run alembic upgrade head &&
+             uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
   worker:
-    build: .
-    container_name: streamvault-worker
-    network_mode: host
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: streamvault-worker-dev
     depends_on:
       db:
         condition: service_healthy
+      api:
+        condition: service_started
     environment:
-      POSTGRES_HOST: localhost
-      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-streamvault}
-      OLLAMA_HOST: ${OLLAMA_HOST:-http://localhost:11434}
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://10.0.0.139:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:30b}
       TMDB_API_KEY: ${TMDB_API_KEY:-}
       QUEUE_WORKERS: ${QUEUE_WORKERS:-2}
       SHARED_DIR: /app/data/shared
     volumes:
+      - ./app:/app/app:ro
       - ./data/shared:/app/data/shared
-    command: ["worker"]
+    command: >
+      sh -c "uv run watchfiles 'python -m app.workers.cli' app/"

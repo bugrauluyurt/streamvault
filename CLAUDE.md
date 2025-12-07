@@ -20,6 +20,9 @@ make typecheck         # Run ty type checker
 make test              # Run pytest
 make test-cov          # Run pytest with coverage report
 make playwright-install # Install Playwright browsers
+make worker            # Start background job workers
+make hooks-install     # Install pre-commit hooks
+make hooks-uninstall   # Uninstall pre-commit hooks
 ```
 
 ## Architecture
@@ -35,7 +38,9 @@ app/
 ├── models/              # SQLAlchemy ORM models (async, 2.0 style)
 ├── schemas/             # Pydantic validation schemas
 ├── routers/             # FastAPI route handlers
-├── services/            # Business logic (LLM, scraper)
+├── services/            # Business logic
+├── workers/             # Background job workers and handlers
+├── enums/               # Type enumerations (JobType, JobStatus, etc.)
 └── migrations/          # Alembic database migrations
 ```
 
@@ -44,6 +49,9 @@ app/
 **Services**:
 - `LLMService`: LangChain + Ollama for structured data extraction
 - `ScraperService`: Playwright browser automation + LLM extraction
+- `QueueService`: PostgreSQL-based job queue management
+- `ShowsService`: Scraped show data queries
+- `TMDBService`: TMDB API integration for movie/TV search
 
 ## Code Style
 

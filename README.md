@@ -8,36 +8,51 @@ FastAPI starter project with async SQLAlchemy, using astral.sh's toolchain (uv, 
 - [uv](https://docs.astral.sh/uv/) - Package manager
 - [Docker](https://www.docker.com/) - For PostgreSQL
 
-## Quick Start
+## Local Development
 
-1. **Copy environment file**
+### Option A: Native Development (Recommended for active development)
+
+Run the application directly on your machine with hot-reload:
 
 ```bash
+# 1. Copy environment file
 cp .env.example .env
-```
 
-2. **Install dependencies**
-
-```bash
+# 2. Install dependencies
 make install
-```
 
-3. **Start PostgreSQL**
+# 3. Install Playwright browsers (for scraping)
+make playwright-install
 
-```bash
+# 4. Start PostgreSQL
 make db-up
-```
 
-4. **Run migrations**
-
-```bash
+# 5. Run migrations
 make upgrade
+
+# 6. Start the API server (Terminal 1)
+make dev
+
+# 7. Start workers (Terminal 2)
+make worker
 ```
 
-5. **Start the development server**
+### Option B: Docker Development (Full containerized setup)
+
+Run everything in Docker with hot-reload:
 
 ```bash
-make dev
+# 1. Copy environment file
+cp .env.example .env
+
+# 2. Start all services (db + api + worker)
+make docker-dev
+
+# View logs
+make docker-dev-logs
+
+# Stop services
+make docker-dev-down
 ```
 
 The API will be available at http://localhost:8000
@@ -63,6 +78,8 @@ API docs: http://localhost:8000/docs
 | `make format` | Format code with ruff |
 | `make typecheck` | Run ty type checker |
 | `make check` | Run all checks (format + lint + typecheck) |
+| `make hooks-install` | Install pre-commit hooks |
+| `make hooks-uninstall` | Uninstall pre-commit hooks |
 
 ### Testing
 
@@ -78,6 +95,20 @@ API docs: http://localhost:8000/docs
 | `make migrate msg="description"` | Create new Alembic migration |
 | `make upgrade` | Apply pending migrations |
 | `make downgrade` | Rollback last migration |
+
+### Docker
+
+| Command | Description |
+|---------|-------------|
+| `make docker-build` | Build Docker images |
+| `make docker-up` | Start all containers (production mode) |
+| `make docker-down` | Stop all containers |
+| `make docker-logs` | Follow logs from all containers |
+| `make docker-logs-api` | Follow API container logs |
+| `make docker-logs-worker` | Follow worker container logs |
+| `make docker-dev` | Start dev environment with hot-reload |
+| `make docker-dev-down` | Stop dev environment |
+| `make docker-dev-logs` | Follow dev environment logs |
 
 ## Project Structure
 
@@ -189,24 +220,32 @@ product = await scraper.extract_data(
 print(product.title, product.price)
 ```
 
-### Configuration
+## Environment Variables
 
-Environment variables in `.env`:
+All configuration is done via environment variables in `.env`:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `POSTGRES_USER` | `postgres` | PostgreSQL username |
+| `POSTGRES_PASSWORD` | `postgres` | PostgreSQL password |
+| `POSTGRES_DB` | `streamvault` | Database name |
+| `POSTGRES_HOST` | `localhost` | Database host |
+| `POSTGRES_PORT` | `5432` | Database port |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama API endpoint |
-| `OLLAMA_MODEL` | `qwen2.5:7b` | Default model for extraction |
-| `OLLAMA_MODELS` | `qwen2.5:7b,llama3.2:3b` | Models to pre-pull on startup |
+| `OLLAMA_MODEL` | `qwen3:30b` | Default model for extraction |
+| `TMDB_API_KEY` | - | TMDB API key (required for TMDB routes) |
+| `QUEUE_WORKERS` | `2` | Number of worker tasks per process |
+| `QUEUE_POLL_INTERVAL` | `1.0` | Seconds between queue polls |
+| `SHARED_DIR` | `/app/data/shared` | Shared storage directory |
 
 ## API Endpoints
 
-### Scrape Routes (`/scrape`)
+### Scrape Routes (`/scraped`)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/scrape/popular` | Scrape popular shows from a URL |
-| POST | `/scrape/top-ten` | Scrape top 10 movies and series |
+| POST | `/scraped/popular` | Scrape popular shows from a URL |
+| POST | `/scraped/top-ten` | Scrape top 10 movies and series |
 
 ### Shows Routes (`/shows`)
 
@@ -225,13 +264,20 @@ Environment variables in `.env`:
 | GET | `/jobs/{id}` | Get job status and result |
 | POST | `/jobs/{id}/retry` | Retry a failed job |
 
+### TMDB Routes (`/tmdb`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/tmdb/search/movies` | Search TMDB for movies by query |
+| GET | `/tmdb/search/tv` | Search TMDB for TV series by query |
+
 ## API Examples
 
 ### Scrape Endpoints
 
 **Scrape popular shows:**
 ```bash
-curl -X POST http://localhost:8000/scrape/popular \
+curl -X POST http://localhost:8000/scraped/popular \
   -H "Content-Type: application/json" \
   -d '{
     "url": "https://www.justwatch.com/us/movies",
@@ -245,7 +291,7 @@ curl -X POST http://localhost:8000/scrape/popular \
 
 **Scrape top 10:**
 ```bash
-curl -X POST http://localhost:8000/scrape/top-ten \
+curl -X POST http://localhost:8000/scraped/top-ten \
   -H "Content-Type: application/json" \
   -d '{
     "origin": "justwatch"
@@ -309,6 +355,23 @@ curl "http://localhost:8000/jobs?status=pending"
 curl -X POST http://localhost:8000/jobs/1/retry
 ```
 
+### TMDB Endpoints
+
+**Search for movies:**
+```bash
+curl "http://localhost:8000/tmdb/search/movies?query=inception&page=1"
+```
+
+**Search for TV series:**
+```bash
+curl "http://localhost:8000/tmdb/search/tv?query=breaking%20bad&page=1"
+```
+
+**Search with details:**
+```bash
+curl "http://localhost:8000/tmdb/search/movies?query=inception&include_details=true"
+```
+
 ## Background Job Queue
 
 The application includes a PostgreSQL-based job queue for running long-running tasks in the background.
@@ -352,7 +415,7 @@ QUEUE_WORKERS=4 make worker
 |----------|-------------|
 | `scrape_top_ten` | Scrape top 10 movies and series |
 | `scrape_popular` | Scrape popular shows from a URL |
-| `enrich_tmdb` | Enrich show data with TMDB info (future) |
+| `validate_and_store` | Validate scraped data against TMDB and store |
 
 ### Queue Configuration
 
@@ -360,3 +423,95 @@ QUEUE_WORKERS=4 make worker
 |----------|---------|-------------|
 | `QUEUE_WORKERS` | `2` | Number of worker tasks per process |
 | `QUEUE_POLL_INTERVAL` | `1.0` | Seconds between queue polls |
+
+## Production Deployment
+
+### Building and Running
+
+```bash
+# 1. Copy and configure environment
+cp .env.example .env
+# Edit .env with production values (strong passwords, real API keys, etc.)
+
+# 2. Build production images
+make docker-build
+
+# 3. Start all services
+make docker-up
+
+# View logs
+make docker-logs
+```
+
+### Production Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Docker Compose Stack                      │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐  │
+│  │  streamvault-api│  │streamvault-worker│  │streamvault-db│ │
+│  │    (FastAPI)    │  │  (Job Workers)   │  │ (PostgreSQL) │ │
+│  │   Port: 8000    │  │                  │  │  Port: 5432  │ │
+│  └────────┬────────┘  └────────┬─────────┘  └──────┬──────┘ │
+│           │                    │                    │        │
+│           └────────────────────┴────────────────────┘        │
+│                              │                               │
+│                    ┌─────────▼─────────┐                    │
+│                    │  ./data/postgres  │ (DB persistence)   │
+│                    │  ./data/shared    │ (Images/files)     │
+│                    └───────────────────┘                    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Container Details
+
+| Container | Description | Network Mode |
+|-----------|-------------|--------------|
+| `streamvault-api` | FastAPI application server | host |
+| `streamvault-worker` | Background job workers | host |
+| `streamvault-db` | PostgreSQL 16 database | bridge (port 5432) |
+
+### Data Persistence
+
+| Volume | Path | Purpose |
+|--------|------|---------|
+| `./data/postgres` | `/var/lib/postgresql/data` | Database files |
+| `./data/shared` | `/app/data/shared` | Downloaded images, scraped files |
+
+### Production Environment Variables
+
+Create a `.env` file with production values:
+
+```bash
+# Database (use strong passwords in production)
+POSTGRES_USER=streamvault
+POSTGRES_PASSWORD=<strong-password>
+POSTGRES_DB=streamvault
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+
+# Ollama LLM
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=qwen3:30b
+
+# External APIs
+TMDB_API_KEY=<your-tmdb-api-key>
+
+# Worker Configuration
+QUEUE_WORKERS=4
+QUEUE_POLL_INTERVAL=1.0
+
+# Storage
+SHARED_DIR=/app/data/shared
+```
+
+### Stopping Services
+
+```bash
+# Stop all containers
+make docker-down
+
+# Stop and remove volumes (WARNING: deletes data)
+docker-compose down -v
+```

@@ -1,4 +1,4 @@
-.PHONY: install dev db-up db-down lint format typecheck check test test-cov migrate upgrade downgrade up hooks-install hooks-uninstall ollama-nvidia ollama-amd ollama-down playwright-install worker
+.PHONY: install dev db-up db-down lint format typecheck check test test-cov migrate upgrade downgrade up hooks-install hooks-uninstall playwright-install worker docker-build docker-up docker-down docker-logs docker-logs-api docker-logs-worker docker-dev docker-dev-down docker-dev-logs
 
 install:
 	uv sync
@@ -46,17 +46,35 @@ hooks-install:
 hooks-uninstall:
 	uv run pre-commit uninstall
 
-ollama-nvidia:
-	docker-compose --profile nvidia up -d ollama
-
-ollama-amd:
-	docker-compose --profile amd up -d ollama-amd
-
-ollama-down:
-	docker-compose --profile nvidia --profile amd down ollama ollama-amd 2>/dev/null || true
-
 playwright-install:
 	uv run playwright install chromium
 
 worker:
 	uv run python -m app.workers.cli
+
+docker-build:
+	docker-compose build
+
+docker-up:
+	docker-compose up -d
+
+docker-down:
+	docker-compose down
+
+docker-logs:
+	docker-compose logs -f
+
+docker-logs-api:
+	docker-compose logs -f api
+
+docker-logs-worker:
+	docker-compose logs -f worker
+
+docker-dev:
+	docker-compose -f docker-compose.dev.yml up --build
+
+docker-dev-down:
+	docker-compose -f docker-compose.dev.yml down
+
+docker-dev-logs:
+	docker-compose -f docker-compose.dev.yml logs -f
