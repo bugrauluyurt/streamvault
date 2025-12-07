@@ -17,15 +17,19 @@ logger = logging.getLogger(__name__)
 MAX_LLM_RETRIES = 3
 
 
-def _extract_essential_details(details: dict) -> dict:
+def _extract_essential_details(details: dict | None) -> dict:
+    if not details:
+        return {}
+    genres = details.get("genres") or []
+    cast = details.get("cast") or []
     return {
         "title": details.get("title"),
         "overview": details.get("overview"),
         "release_year": details.get("release_year"),
         "first_air_year": details.get("first_air_year"),
-        "genres": [g.get("name") for g in details.get("genres", []) if g.get("name")],
-        "directors": details.get("directors", []),
-        "cast": [c.get("name") for c in details.get("cast", [])[:5] if c.get("name")],
+        "genres": [g.get("name") for g in genres if isinstance(g, dict) and g.get("name")],
+        "directors": details.get("directors") or [],
+        "cast": [c.get("name") for c in cast[:5] if isinstance(c, dict) and c.get("name")],
         "runtime": details.get("runtime"),
         "rating": details.get("rating"),
     }
