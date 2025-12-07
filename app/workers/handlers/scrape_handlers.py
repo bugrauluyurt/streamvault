@@ -44,7 +44,6 @@ async def handle_scrape_top_ten(job: Job, db: AsyncSession) -> dict:
         st = ShowType.MOVIE if show_type == "movie" else ShowType.SERIES
         record = _create_top_show_record(show, batch_sequence, st)
         db.add(record)
-        await db.flush()
         if show_type == "movie":
             counts["movies"] += 1
         else:
@@ -89,7 +88,6 @@ async def handle_scrape_popular(job: Job, db: AsyncSession) -> dict:
         position_counter["value"] += 1
         record = _create_popular_show_record(show, batch_sequence, position_counter["value"])
         db.add(record)
-        await db.flush()
 
     scraper = ScraperService()
     result = await scraper.extract_with_origin_detailed(

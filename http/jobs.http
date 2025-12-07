@@ -70,7 +70,7 @@ Content-Type: application/json
     }
 }
 
-### Validate and Store - Popular Shows (default limit 50)
+### Validate and Store - Popular Shows
 
 POST {{baseUrl}}/jobs
 Content-Type: application/json

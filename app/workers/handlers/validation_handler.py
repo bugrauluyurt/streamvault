@@ -2,7 +2,8 @@ import json
 import logging
 
 from langchain_core.exceptions import OutputParserException
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import ScrapedType, ValidationStatus
@@ -67,7 +68,6 @@ def _format_tv_results(results: list[TMDBTVSearchResult]) -> str:
 
 async def handle_validate_and_store(job: Job, db: AsyncSession) -> dict:
     source_table = job.payload.get("source_table", "popular_shows")
-    limit = job.payload.get("limit", 50)
     reprocess = job.payload.get("reprocess", False)
 
     status_filter = ValidationStatus.PROCESSED if reprocess else ValidationStatus.NOT_STARTED
@@ -76,15 +76,15 @@ async def handle_validate_and_store(job: Job, db: AsyncSession) -> dict:
         query = (
             select(ScrapedTopShow)
             .where(ScrapedTopShow.validation_status == status_filter)
+            .where(ScrapedTopShow.tmdb_id.is_(None))
             .order_by(ScrapedTopShow.created_at.desc())
-            .limit(limit)
         )
     else:
         query = (
             select(ScrapedPopularShow)
             .where(ScrapedPopularShow.validation_status == status_filter)
+            .where(ScrapedPopularShow.tmdb_id.is_(None))
             .order_by(ScrapedPopularShow.created_at.desc())
-            .limit(limit)
         )
 
     items = (await db.execute(query)).scalars().all()
@@ -172,25 +172,9 @@ async def handle_validate_and_store(job: Job, db: AsyncSession) -> dict:
                     ValidationStatus.REPROCESSED if reprocess else ValidationStatus.PROCESSED
                 )
 
-                existing = await db.execute(
-                    select(ScrapedShow).where(ScrapedShow.tmdb_id == tmdb_id_str).limit(1)
-                )
-                if existing.scalar_one_or_none():
-                    logger.info(
-                        "TMDB ID %s already exists in scraped_shows, skipping storage for %s",
-                        tmdb_id_str,
-                        title,
-                    )
-                    item.tmdb_id = tmdb_id_str
-                    item.confidence = result.confidence
-                    item.validation_status = new_status
-                    await db.flush()
-                    skipped += 1
-                    continue
-
                 needs_review = result.confidence < 8
 
-                scraped_show = ScrapedShow(
+                stmt = pg_insert(ScrapedShow).values(
                     tmdb_id=tmdb_id_str,
                     name=title,
                     details=details,
@@ -198,7 +182,18 @@ async def handle_validate_and_store(job: Job, db: AsyncSession) -> dict:
                     source_url=details.get("detail_url", ""),
                     needs_review=needs_review,
                 )
-                db.add(scraped_show)
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["tmdb_id"],
+                    set_={
+                        "name": stmt.excluded.name,
+                        "details": stmt.excluded.details,
+                        "type": stmt.excluded.type,
+                        "source_url": stmt.excluded.source_url,
+                        "needs_review": stmt.excluded.needs_review,
+                        "updated_at": func.now(),
+                    },
+                )
+                await db.execute(stmt)
 
                 item.tmdb_id = tmdb_id_str
                 item.confidence = result.confidence
