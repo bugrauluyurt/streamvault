@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     queue_workers: int = 2
     queue_poll_interval: float = 1.0
 
+    tmdb_api_key: str = ""
+
     shared_dir: Path = Path("/app/data/shared")
 
     @property
