@@ -48,3 +48,37 @@ GET {{baseUrl}}/jobs/1
 
 ### Retry Failed Job
 POST {{baseUrl}}/jobs/1/retry
+
+### Validate and Store - Popular Shows (default limit 50)
+POST {{baseUrl}}/jobs
+Content-Type: application/json
+
+{
+  "job_type": "validate_and_store",
+  "payload": {
+    "source_table": "popular_shows"
+  }
+}
+
+### Validate and Store - Top Shows
+POST {{baseUrl}}/jobs
+Content-Type: application/json
+
+{
+  "job_type": "validate_and_store",
+  "payload": {
+    "source_table": "top_shows"
+  }
+}
+
+### Validate and Store - Custom Limit
+POST {{baseUrl}}/jobs
+Content-Type: application/json
+
+{
+  "job_type": "validate_and_store",
+  "payload": {
+    "source_table": "popular_shows",
+    "limit": 10
+  }
+}

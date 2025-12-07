@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import String, func
+from sqlalchemy import Boolean, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -13,11 +13,12 @@ class ScrapedShow(Base):
     __tablename__ = "scraped_shows"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tmdb_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    tmdb_id: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     details: Mapped[dict] = mapped_column(JSONB, nullable=False)
     type: Mapped[ScrapedType] = mapped_column(String, nullable=False)
     source_url: Mapped[str] = mapped_column(String, nullable=False)
+    needs_review: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         nullable=False, server_default=func.now(), onupdate=func.now()
