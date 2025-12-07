@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     ollama_host: str = "http://localhost:11434"
     ollama_model: str = "qwen3:30b"
 
+    queue_workers: int = 2
+    queue_poll_interval: float = 1.0
+
     shared_dir: Path = Path("/app/data/shared")
 
     @property

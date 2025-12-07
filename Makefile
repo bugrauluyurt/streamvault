@@ -1,4 +1,4 @@
-.PHONY: install dev db-up db-down lint format typecheck check test test-cov migrate upgrade downgrade up hooks-install hooks-uninstall ollama-nvidia ollama-amd ollama-down playwright-install
+.PHONY: install dev db-up db-down lint format typecheck check test test-cov migrate upgrade downgrade up hooks-install hooks-uninstall ollama-nvidia ollama-amd ollama-down playwright-install worker
 
 install:
 	uv sync
@@ -57,3 +57,6 @@ ollama-down:
 
 playwright-install:
 	uv run playwright install chromium
+
+worker:
+	uv run python -m app.workers.cli

@@ -50,6 +50,7 @@ API docs: http://localhost:8000/docs
 |---------|-------------|
 | `make install` | Install dependencies with uv |
 | `make dev` | Run FastAPI with hot-reload |
+| `make worker` | Start background job workers |
 | `make db-up` | Start PostgreSQL container |
 | `make db-down` | Stop PostgreSQL container |
 | `make up` | Full startup (db + migrations + dev) |
@@ -88,6 +89,7 @@ streamvault/
 │   ├── schemas/        # Pydantic schemas
 │   ├── routers/        # API endpoints
 │   ├── services/       # Business logic
+│   ├── workers/        # Background job workers
 │   └── migrations/     # Alembic migrations
 ├── tests/              # Test suite
 ├── docker-compose.yml  # PostgreSQL service
@@ -214,6 +216,15 @@ Environment variables in `.env`:
 | GET | `/shows/scraped/top-ten` | Get top 10 movies and series from latest batch |
 | GET | `/shows/scraped/{id}` | Get a single scraped show by ID |
 
+### Jobs Routes (`/jobs`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/jobs` | Enqueue a new background job |
+| GET | `/jobs` | List jobs (with optional status filter) |
+| GET | `/jobs/{id}` | Get job status and result |
+| POST | `/jobs/{id}/retry` | Retry a failed job |
+
 ## API Examples
 
 ### Scrape Endpoints
@@ -257,3 +268,95 @@ curl http://localhost:8000/shows/scraped/top-ten
 ```bash
 curl http://localhost:8000/shows/scraped/1
 ```
+
+### Jobs Endpoints
+
+**Enqueue a scrape job:**
+```bash
+curl -X POST http://localhost:8000/jobs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "job_type": "scrape_top_ten",
+    "payload": {"origin": "justwatch"}
+  }'
+```
+
+**Enqueue a popular scrape job:**
+```bash
+curl -X POST http://localhost:8000/jobs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "job_type": "scrape_popular",
+    "payload": {
+      "origin": "justwatch",
+      "url": "https://www.justwatch.com/us/movies"
+    }
+  }'
+```
+
+**Get job status:**
+```bash
+curl http://localhost:8000/jobs/1
+```
+
+**List pending jobs:**
+```bash
+curl "http://localhost:8000/jobs?status=pending"
+```
+
+**Retry a failed job:**
+```bash
+curl -X POST http://localhost:8000/jobs/1/retry
+```
+
+## Background Job Queue
+
+The application includes a PostgreSQL-based job queue for running long-running tasks in the background.
+
+### Architecture
+
+```
+┌─────────────────┐     ┌─────────────────────┐
+│   FastAPI API   │     │   Worker Process    │
+│                 │     │                     │
+│  POST /jobs ────┼──▶  │  ┌───────────────┐  │
+│  GET /jobs/{id} │     │  │ Worker 1      │  │
+│                 │     │  │ Worker 2      │  │
+└────────┬────────┘     │  │ ...           │  │
+         │              │  └───────────────┘  │
+         ▼              │         │           │
+    ┌─────────┐         │         ▼           │
+    │ Postgres│◀────────┼── Poll & Process    │
+    │  jobs   │         │                     │
+    └─────────┘         └─────────────────────┘
+```
+
+### Running Workers
+
+Workers run as a separate process from the API:
+
+```bash
+# Terminal 1: Start API
+make dev
+
+# Terminal 2: Start workers (default: 2 workers)
+make worker
+
+# Or with custom worker count
+QUEUE_WORKERS=4 make worker
+```
+
+### Job Types
+
+| Job Type | Description |
+|----------|-------------|
+| `scrape_top_ten` | Scrape top 10 movies and series |
+| `scrape_popular` | Scrape popular shows from a URL |
+| `enrich_tmdb` | Enrich show data with TMDB info (future) |
+
+### Queue Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `QUEUE_WORKERS` | `2` | Number of worker tasks per process |
+| `QUEUE_POLL_INTERVAL` | `1.0` | Seconds between queue polls |
