@@ -2,13 +2,13 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from .enums import ItemType, ShowType
+from app.enums import ItemType, ShowType
 
 
 class JustWatchParams(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    providers: list[str]
+    providers: list[str] = ["amp", "atp", "dnp", "hlu", "mxx", "nfx", "stz"]
     rating_imdb: list[int] | None = None
     tomato_meter: int | None = None
 
@@ -25,6 +25,9 @@ class ScrapeRequest(BaseModel):
 
     site_params: SiteParams
     max_items: int | None = None
+    download_tile_images: bool = False
+    download_cast_images: bool = False
+    download_background_images: bool = False
 
 
 class ScrapeGenre(BaseModel):

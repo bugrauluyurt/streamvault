@@ -14,7 +14,12 @@ async def scrape_shows(request: ScrapeRequest) -> ScrapeResponse:
 
     scraper = ScraperService()
     result = await scraper.extract_with_origin_detailed(
-        url=url, origin=origin, max_items=request.max_items
+        url=url,
+        origin=origin,
+        max_items=request.max_items,
+        download_tile_images=request.download_tile_images,
+        download_cast_images=request.download_cast_images,
+        download_background_images=request.download_background_images,
     )
 
     return ScrapeResponse(shows=result.items, url=url)

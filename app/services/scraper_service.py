@@ -151,7 +151,14 @@ class ScraperService:
         return await self.llm.generate(full_prompt)
 
     async def extract_with_origin_detailed(
-        self, url: str, origin: SiteOrigin, max_concurrent: int = 5, max_items: int | None = None
+        self,
+        url: str,
+        origin: SiteOrigin,
+        max_concurrent: int = 5,
+        max_items: int | None = None,
+        download_tile_images: bool = False,
+        download_cast_images: bool = False,
+        download_background_images: bool = False,
     ) -> ScrapeShowList:
         p, browser, context, page = await self._create_page()
         try:
@@ -177,20 +184,26 @@ class ScraperService:
                 if not isinstance(result, ScrapeShowList):
                     return ScrapeShowList(items=[])
 
-            images_saved = 0
+            shows_list: list[ScrapeShow] = list(result.items)
 
-            async def download_show_image(show: ScrapeShow) -> ScrapeShow:
-                nonlocal images_saved
-                if show.image_url and show.slug and show.source:
-                    local_path = await self._download_image(show.image_url, show.slug, show.source)
-                    if local_path:
-                        images_saved += 1
-                        return show.model_copy(update={"local_image_path": local_path})
-                return show
+            if download_tile_images:
+                images_saved = 0
 
-            image_tasks = [download_show_image(s) for s in result.items]
-            shows_with_images = await asyncio.gather(*image_tasks, return_exceptions=True)
-            shows_list = [s for s in shows_with_images if isinstance(s, ScrapeShow)]
+                async def download_show_image(show: ScrapeShow) -> ScrapeShow:
+                    nonlocal images_saved
+                    if show.image_url and show.slug and show.source:
+                        local_path = await self._download_image(
+                            show.image_url, show.slug, show.source
+                        )
+                        if local_path:
+                            images_saved += 1
+                            return show.model_copy(update={"local_image_path": local_path})
+                    return show
+
+                image_tasks = [download_show_image(s) for s in result.items]
+                shows_with_images = await asyncio.gather(*image_tasks, return_exceptions=True)
+                shows_list = [s for s in shows_with_images if isinstance(s, ScrapeShow)]
+                logger.info("Tile images saved: %d", images_saved)
 
             seen_slugs: set[str] = set()
             unique_shows: list[ScrapeShow] = []
@@ -204,7 +217,6 @@ class ScraperService:
                 unique_shows = unique_shows[:max_items]
 
             logger.info("Total items to fetch details: %d", len(unique_shows))
-            logger.info("Images saved from main page: %d", images_saved)
 
             semaphore = asyncio.Semaphore(max_concurrent)
             detail_wait_selector = origin.get_detail_wait_selector()
@@ -263,27 +275,33 @@ class ScraperService:
                 "Detail fetch complete - Successful: %d, Failed: %d", successful_count, failed_count
             )
 
-            async def download_cast_images(show: ScrapeShow) -> ScrapeShow:
-                if not show.cast:
-                    return show
-                updated_cast: list[ScrapeCastMember] = []
-                for member in show.cast:
-                    if member.image_url:
-                        local_path = await self._download_cast_image(member.image_url, member.name)
-                        updated_cast.append(
-                            ScrapeCastMember(
-                                name=member.name,
-                                image_url=member.image_url,
-                                local_image_path=local_path,
-                            )
-                        )
-                    else:
-                        updated_cast.append(member)
-                return show.model_copy(update={"cast": updated_cast})
+            final_shows = valid_shows
 
-            cast_tasks = [download_cast_images(show) for show in valid_shows]
-            shows_with_cast_images = await asyncio.gather(*cast_tasks, return_exceptions=True)
-            final_shows = [s for s in shows_with_cast_images if isinstance(s, ScrapeShow)]
+            if download_cast_images:
+
+                async def download_cast_images_task(show: ScrapeShow) -> ScrapeShow:
+                    if not show.cast:
+                        return show
+                    updated_cast: list[ScrapeCastMember] = []
+                    for member in show.cast:
+                        if member.image_url:
+                            local_path = await self._download_cast_image(
+                                member.image_url, member.name
+                            )
+                            updated_cast.append(
+                                ScrapeCastMember(
+                                    name=member.name,
+                                    image_url=member.image_url,
+                                    local_image_path=local_path,
+                                )
+                            )
+                        else:
+                            updated_cast.append(member)
+                    return show.model_copy(update={"cast": updated_cast})
+
+                cast_tasks = [download_cast_images_task(show) for show in valid_shows]
+                shows_with_cast_images = await asyncio.gather(*cast_tasks, return_exceptions=True)
+                final_shows = [s for s in shows_with_cast_images if isinstance(s, ScrapeShow)]
 
             return ScrapeShowList(items=final_shows)
         finally:

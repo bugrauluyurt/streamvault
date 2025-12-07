@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 
 from pydantic import BaseModel
 
-from app.schemas.enums import ShowType
+from app.enums import ShowType
 from app.schemas.scrape import (
     ScrapeCastMember,
     ScrapeGenre,
