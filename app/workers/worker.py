@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 import traceback
 import uuid
 
@@ -20,7 +21,9 @@ class Worker:
         self._current_job: Job | None = None
 
     async def start(self) -> None:
-        logger.info(f"Worker {self.worker_id} starting...")
+        logger.info(
+            f"[{self.worker_id}] Worker starting, polling every {settings.queue_poll_interval}s"
+        )
 
         while not self._stop_event.is_set():
             try:
@@ -37,13 +40,13 @@ class Worker:
                         await asyncio.sleep(settings.queue_poll_interval)
 
             except asyncio.CancelledError:
-                logger.info(f"Worker {self.worker_id} cancelled")
+                logger.info(f"[{self.worker_id}] Worker cancelled")
                 break
             except Exception as e:
-                logger.error(f"Worker {self.worker_id} error: {e}")
+                logger.exception(f"[{self.worker_id}] Unexpected error: {e}")
                 await asyncio.sleep(settings.queue_poll_interval)
 
-        logger.info(f"Worker {self.worker_id} stopped")
+        logger.info(f"[{self.worker_id}] Worker stopped")
 
     async def _process_job(self, job: Job, queue: QueueService) -> None:
         job_type = JobType(job.job_type)
@@ -51,19 +54,31 @@ class Worker:
 
         if handler is None:
             await queue.fail_job(job.id, f"No handler for job type: {job_type}")
-            logger.error(f"No handler for job type: {job_type}")
+            logger.error(f"[{self.worker_id}] Job {job.id}: No handler for type '{job_type}'")
             return
 
-        logger.info(f"Worker {self.worker_id} processing job {job.id} ({job_type})")
+        logger.info(
+            f"[{self.worker_id}] Job {job.id}: Starting {job_type} "
+            f"(attempt {job.attempts}/{job.max_attempts}, payload={job.payload})"
+        )
+
+        start_time = time.perf_counter()
 
         try:
             result = await handler(job)
+            elapsed = time.perf_counter() - start_time
             await queue.complete_job(job.id, result)
-            logger.info(f"Job {job.id} completed successfully")
+            logger.info(
+                f"[{self.worker_id}] Job {job.id}: Completed in {elapsed:.2f}s (result={result})"
+            )
         except Exception as e:
+            elapsed = time.perf_counter() - start_time
             error_msg = f"{type(e).__name__}: {e}\n{traceback.format_exc()}"
             await queue.fail_job(job.id, error_msg)
-            logger.error(f"Job {job.id} failed: {e}")
+            logger.error(
+                f"[{self.worker_id}] Job {job.id}: Failed after {elapsed:.2f}s - "
+                f"{type(e).__name__}: {e}"
+            )
 
     def stop(self) -> None:
         self._stop_event.set()

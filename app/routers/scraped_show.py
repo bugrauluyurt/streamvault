@@ -11,7 +11,7 @@ from app.schemas.scrape import (
 from app.services.scraper_service import ScraperService
 from app.services.site_origins import get_site_origin
 
-router = APIRouter(prefix="/scrape", tags=["scrape"])
+router = APIRouter(prefix="/scraped", tags=["scrape"])
 
 
 @router.post("/popular", response_model=ScrapeResponse)
