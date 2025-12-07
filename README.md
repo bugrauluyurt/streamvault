@@ -196,3 +196,64 @@ Environment variables in `.env`:
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama API endpoint |
 | `OLLAMA_MODEL` | `qwen2.5:7b` | Default model for extraction |
 | `OLLAMA_MODELS` | `qwen2.5:7b,llama3.2:3b` | Models to pre-pull on startup |
+
+## API Endpoints
+
+### Scrape Routes (`/scrape`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/scrape/popular` | Scrape popular shows from a URL |
+| POST | `/scrape/top-ten` | Scrape top 10 movies and series |
+
+### Shows Routes (`/shows`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/shows/scraped` | Get paginated list of scraped shows |
+| GET | `/shows/scraped/top-ten` | Get top 10 movies and series from latest batch |
+| GET | `/shows/scraped/{id}` | Get a single scraped show by ID |
+
+## API Examples
+
+### Scrape Endpoints
+
+**Scrape popular shows:**
+```bash
+curl -X POST http://localhost:8000/scrape/popular \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://www.justwatch.com/us/movies",
+    "origin": "justwatch",
+    "max_items": 10,
+    "download_tile_images": false,
+    "download_cast_images": false,
+    "download_background_images": false
+  }'
+```
+
+**Scrape top 10:**
+```bash
+curl -X POST http://localhost:8000/scrape/top-ten \
+  -H "Content-Type: application/json" \
+  -d '{
+    "origin": "justwatch"
+  }'
+```
+
+### Shows Endpoints
+
+**Get paginated scraped shows:**
+```bash
+curl "http://localhost:8000/shows/scraped?skip=0&limit=20"
+```
+
+**Get top 10 movies and series:**
+```bash
+curl http://localhost:8000/shows/scraped/top-ten
+```
+
+**Get a single show by ID:**
+```bash
+curl http://localhost:8000/shows/scraped/1
+```
