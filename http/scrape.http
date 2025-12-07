@@ -1,0 +1,27 @@
+@baseUrl = http://localhost:8000
+
+### Scrape Top Ten (Direct - No Queue)
+POST {{baseUrl}}/scrape/top-ten
+Content-Type: application/json
+
+{
+  "origin": "justwatch"
+}
+
+### Scrape Popular Movies (Direct - No Queue)
+POST {{baseUrl}}/scrape/popular
+Content-Type: application/json
+
+{
+  "url": "https://www.justwatch.com/us/movies",
+  "origin": "justwatch"
+}
+
+### Scrape Popular Series (Direct - No Queue)
+POST {{baseUrl}}/scrape/popular
+Content-Type: application/json
+
+{
+  "url": "https://www.justwatch.com/us/tv-shows",
+  "origin": "justwatch"
+}

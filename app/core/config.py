@@ -24,6 +24,8 @@ class Settings(BaseSettings):
 
     tmdb_api_key: str = ""
 
+    browser_headless: bool = True
+
     shared_dir: Path = Path("/app/data/shared")
 
     @property

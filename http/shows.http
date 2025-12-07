@@ -1,0 +1,10 @@
+@baseUrl = http://localhost:8000
+
+### Get Scraped Shows (Paginated)
+GET {{baseUrl}}/shows/scraped?skip=0&limit=20
+
+### Get Top Ten Shows
+GET {{baseUrl}}/shows/scraped/top-ten
+
+### Get Show by ID
+GET {{baseUrl}}/shows/scraped/1

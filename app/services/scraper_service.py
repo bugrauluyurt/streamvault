@@ -83,7 +83,7 @@ class ScraperService:
 
     async def _create_page(self) -> tuple[Playwright, Browser, BrowserContext, Page]:
         p = await async_playwright().start()
-        browser = await p.chromium.launch(headless=False)
+        browser = await p.chromium.launch(headless=settings.browser_headless)
         user_agent = (
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
             "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -217,6 +217,8 @@ class ScraperService:
                 unique_shows = unique_shows[:max_items]
 
             logger.info("Total items to fetch details: %d", len(unique_shows))
+            for show in unique_shows:
+                logger.info("Queued: %s", show.title)
 
             semaphore = asyncio.Semaphore(max_concurrent)
             detail_wait_selector = origin.get_detail_wait_selector()
@@ -228,6 +230,7 @@ class ScraperService:
                 if not show.detail_url:
                     return show
                 async with semaphore:
+                    logger.info("Fetching: %s -> %s", show.title, show.detail_url)
                     detail_page = await context.new_page()
                     try:
                         await detail_page.goto(show.detail_url, wait_until="domcontentloaded")
@@ -255,7 +258,7 @@ class ScraperService:
                         detailed = await origin.extract_detail_page(detail_page, show)
                         if detailed and detailed.overview:
                             successful_count += 1
-                            logger.debug("Extracted details for %s", show.slug)
+                            logger.info("Extracted: %s", show.title)
                             return detailed
                         failed_count += 1
                         return show
@@ -334,6 +337,9 @@ class ScraperService:
             if result is None:
                 return None
 
+            logger.info("Top 10 Movies: %s", [s.title for s in result.movies.items])
+            logger.info("Top 10 Series: %s", [s.title for s in result.series.items])
+
             semaphore = asyncio.Semaphore(max_concurrent)
             detail_wait_selector = origin.get_detail_wait_selector()
 
@@ -341,6 +347,7 @@ class ScraperService:
                 if not show.detail_url:
                     return show
                 async with semaphore:
+                    logger.info("Fetching: %s -> %s", show.title, show.detail_url)
                     detail_page = await context.new_page()
                     try:
                         await detail_page.goto(show.detail_url, wait_until="domcontentloaded")
@@ -367,7 +374,7 @@ class ScraperService:
                         await asyncio.sleep(3)
                         detailed = await origin.extract_detail_page(detail_page, show)
                         if detailed and detailed.overview:
-                            logger.debug("Extracted details for %s", show.slug)
+                            logger.info("Extracted: %s", show.title)
                             return detailed.model_copy(update={"position": show.position})
                         return show
                     except Exception as e:

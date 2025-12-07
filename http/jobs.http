@@ -1,0 +1,50 @@
+@baseUrl = http://localhost:8000
+
+### Create Top Ten Scrape Job
+POST {{baseUrl}}/jobs
+Content-Type: application/json
+
+{
+  "job_type": "scrape_top_ten",
+  "payload": {}
+}
+
+### Create Popular Scrape Job (Movies)
+POST {{baseUrl}}/jobs
+Content-Type: application/json
+
+{
+  "job_type": "scrape_popular",
+  "payload": {
+    "url": "https://www.justwatch.com/us/movies"
+  }
+}
+
+### Create Popular Scrape Job (Series)
+POST {{baseUrl}}/jobs
+Content-Type: application/json
+
+{
+  "job_type": "scrape_popular",
+  "payload": {
+    "url": "https://www.justwatch.com/us/tv-shows"
+  }
+}
+
+### List All Jobs
+GET {{baseUrl}}/jobs
+
+### List Pending Jobs
+GET {{baseUrl}}/jobs?status=pending
+
+### List Completed Jobs
+GET {{baseUrl}}/jobs?status=completed
+
+### List Failed Jobs
+GET {{baseUrl}}/jobs?status=failed
+
+### Get Job by ID
+GET {{baseUrl}}/jobs/1
+
+### Retry Failed Job
+POST {{baseUrl}}/jobs/1/retry
