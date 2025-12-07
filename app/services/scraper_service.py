@@ -169,7 +169,7 @@ class ScraperService:
                 with contextlib.suppress(Exception):
                     await page.wait_for_selector(wait_selector, timeout=10000)
 
-            await asyncio.sleep(5)
+            await asyncio.sleep(8)
             await page.evaluate("window.scrollBy(0, 2000)")
             await asyncio.sleep(5)
             logger.debug("Main page loaded, extracting shows from listing")
@@ -259,7 +259,7 @@ class ScraperService:
                         if detailed and detailed.overview:
                             successful_count += 1
                             logger.info("Extracted: %s", show.title)
-                            return detailed
+                            return detailed.model_copy(update={"position": show.position})
                         failed_count += 1
                         return show
                     except Exception as e:

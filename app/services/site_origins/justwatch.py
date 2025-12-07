@@ -90,8 +90,19 @@ Return all shows found on the page."""
     async def extract_from_page(self, page: "Page") -> ScrapeShowList:
         shows: list[ScrapeShow] = []
 
-        links = await page.query_selector_all("a[href*='/us/movie/'], a[href*='/us/tv-show/']")
+        grid_container = await page.query_selector(".title-list-grid")
+        if grid_container:
+            links = await grid_container.query_selector_all(
+                "a[href*='/us/movie/'], a[href*='/us/tv-show/']"
+            )
+            logger.debug("Found %d links in .title-list-grid container", len(links))
+        else:
+            links = await page.query_selector_all("a[href*='/us/movie/'], a[href*='/us/tv-show/']")
+            logger.debug(
+                "No .title-list-grid found, using page-wide selector: %d links", len(links)
+            )
 
+        position = 1
         for link in links:
             href = await link.get_attribute("href")
             if not href:
@@ -116,8 +127,10 @@ Return all shows found on the page."""
                     detail_url=detail_url,
                     title=title,
                     image_url=image_url,
+                    position=position,
                 )
             )
+            position += 1
 
         return ScrapeShowList(items=shows)
 

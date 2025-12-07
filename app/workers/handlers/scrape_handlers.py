@@ -21,10 +21,12 @@ def _create_top_show_record(
     )
 
 
-def _create_popular_show_record(show: ScrapeShow, batch_sequence: int) -> ScrapedPopularShow:
+def _create_popular_show_record(
+    show: ScrapeShow, batch_sequence: int, position: int
+) -> ScrapedPopularShow:
     return ScrapedPopularShow(
         tmdb_id=show.tmdb_id,
-        position=show.position or 0,
+        position=position,
         show_type=ShowType(show.show_type),
         batch_sequence=batch_sequence,
         details=show.model_dump(mode="json"),
@@ -75,7 +77,7 @@ async def handle_scrape_popular(job: Job, db: AsyncSession) -> dict:
 
     origin = get_site_origin(origin_name)
 
-    max_items = job.payload.get("max_items")
+    max_items = job.payload.get("max_items", 50)
     download_tile_images = job.payload.get("download_tile_images", False)
     download_cast_images = job.payload.get("download_cast_images", False)
     download_background_images = job.payload.get("download_background_images", False)
@@ -94,8 +96,8 @@ async def handle_scrape_popular(job: Job, db: AsyncSession) -> dict:
 
     records: list[ScrapedPopularShow] = []
 
-    for show in result.items:
-        records.append(_create_popular_show_record(show, batch_sequence))
+    for i, show in enumerate(result.items):
+        records.append(_create_popular_show_record(show, batch_sequence, i + 1))
 
     db.add_all(records)
     await db.flush()
