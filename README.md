@@ -109,6 +109,9 @@ API docs: http://localhost:8000/docs
 | `make docker-dev` | Start dev environment with hot-reload |
 | `make docker-dev-down` | Stop dev environment |
 | `make docker-dev-logs` | Follow dev environment logs |
+| `make logs-up` | Start logging stack (Loki + Grafana) |
+| `make logs-up-dev` | Start logging stack for dev environment |
+| `make logs-ui` | Open Grafana UI in browser |
 
 ## Project Structure
 
@@ -462,3 +465,72 @@ make docker-down
 # Stop and remove volumes (WARNING: deletes data)
 docker-compose down -v
 ```
+
+## Centralized Logging
+
+The project includes a centralized logging stack using Loki and Grafana for log aggregation, persistence, and visualization.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Logging Stack                                │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐  │
+│  │   Promtail  │───▶│    Loki     │◀───│      Grafana        │  │
+│  │ (collector) │    │  (storage)  │    │       (UI)          │  │
+│  └──────┬──────┘    │ Port: 3100  │    │    Port: 3001       │  │
+│         │           └─────────────┘    └─────────────────────┘  │
+│         │                                                        │
+│         ▼                                                        │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │              Docker Container Logs                       │    │
+│  │   streamvault-api  |  streamvault-worker  |  postgres   │    │
+│  └─────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Starting the Logging Stack
+
+```bash
+# Start logging services (without restarting existing containers)
+make logs-up-dev    # For development
+make logs-up        # For production
+
+# Open Grafana UI
+make logs-ui        # Opens http://localhost:3001
+```
+
+### Accessing Logs
+
+1. Open Grafana at http://localhost:3001
+2. Go to **Explore** (compass icon in sidebar)
+3. Select **Loki** as the datasource
+4. Use LogQL queries to filter logs
+
+### LogQL Query Examples
+
+| Query | Description |
+|-------|-------------|
+| `{container_name="streamvault-api-dev"}` | All API logs |
+| `{container_name="streamvault-worker-dev"}` | All worker logs |
+| `{container_name=~"streamvault.*"}` | All StreamVault logs |
+| `{service="api"} \|= "ERROR"` | API errors |
+| `{service="worker"} \|= "job"` | Worker job-related logs |
+| `{container_name=~"streamvault.*"} \|~ "(?i)error"` | Case-insensitive error search |
+
+### Log Retention
+
+Logs are retained for **14 days** by default. This can be configured in `docker/loki/loki-config.yml`:
+
+```yaml
+limits_config:
+  retention_period: 336h  # 14 days
+```
+
+### Data Persistence
+
+| Volume | Path | Purpose |
+|--------|------|---------|
+| `./data/loki` | `/loki` | Log storage and indexes |
+| `./data/grafana` | `/var/lib/grafana` | Grafana dashboards and settings |

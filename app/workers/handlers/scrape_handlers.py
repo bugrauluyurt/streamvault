@@ -37,8 +37,21 @@ async def handle_scrape_top_ten(job: Job, db: AsyncSession) -> dict:
     origin_name = job.payload.get("origin", "justwatch")
     origin = get_site_origin(origin_name)
 
+    batch_sequence = int(datetime.now().timestamp())
+    counts = {"movies": 0, "series": 0}
+
+    async def on_item_ready(show: ScrapeShow, show_type: str) -> None:
+        st = ShowType.MOVIE if show_type == "movie" else ShowType.SERIES
+        record = _create_top_show_record(show, batch_sequence, st)
+        db.add(record)
+        await db.flush()
+        if show_type == "movie":
+            counts["movies"] += 1
+        else:
+            counts["series"] += 1
+
     scraper = ScraperService()
-    result = await scraper.extract_top_ten(origin=origin)
+    result = await scraper.extract_top_ten(origin=origin, on_item_ready=on_item_ready)
 
     if result is None:
         return {
@@ -47,23 +60,10 @@ async def handle_scrape_top_ten(job: Job, db: AsyncSession) -> dict:
             "series_count": 0,
         }
 
-    batch_sequence = int(datetime.now().timestamp())
-
-    records: list[ScrapedTopShow] = []
-
-    for show in result.movies.items:
-        records.append(_create_top_show_record(show, batch_sequence, ShowType.MOVIE))
-
-    for show in result.series.items:
-        records.append(_create_top_show_record(show, batch_sequence, ShowType.SERIES))
-
-    db.add_all(records)
-    await db.flush()
-
     return {
         "date": date.today().isoformat(),
-        "movies_count": len(result.movies.items),
-        "series_count": len(result.series.items),
+        "movies_count": counts["movies"],
+        "series_count": counts["series"],
         "batch_sequence": batch_sequence,
     }
 
@@ -82,6 +82,15 @@ async def handle_scrape_popular(job: Job, db: AsyncSession) -> dict:
     download_cast_images = job.payload.get("download_cast_images", False)
     download_background_images = job.payload.get("download_background_images", False)
 
+    batch_sequence = int(datetime.now().timestamp())
+    position_counter = {"value": 0}
+
+    async def on_item_ready(show: ScrapeShow) -> None:
+        position_counter["value"] += 1
+        record = _create_popular_show_record(show, batch_sequence, position_counter["value"])
+        db.add(record)
+        await db.flush()
+
     scraper = ScraperService()
     result = await scraper.extract_with_origin_detailed(
         url=url,
@@ -90,17 +99,8 @@ async def handle_scrape_popular(job: Job, db: AsyncSession) -> dict:
         download_tile_images=download_tile_images,
         download_cast_images=download_cast_images,
         download_background_images=download_background_images,
+        on_item_ready=on_item_ready,
     )
-
-    batch_sequence = int(datetime.now().timestamp())
-
-    records: list[ScrapedPopularShow] = []
-
-    for i, show in enumerate(result.items):
-        records.append(_create_popular_show_record(show, batch_sequence, i + 1))
-
-    db.add_all(records)
-    await db.flush()
 
     return {
         "url": url,

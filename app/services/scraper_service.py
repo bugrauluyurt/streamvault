@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import logging
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import TypeVar
 
@@ -159,6 +160,7 @@ class ScraperService:
         download_tile_images: bool = False,
         download_cast_images: bool = False,
         download_background_images: bool = False,
+        on_item_ready: Callable[[ScrapeShow], Awaitable[None]] | None = None,
     ) -> ScrapeShowList:
         p, browser, context, page = await self._create_page()
         try:
@@ -259,7 +261,10 @@ class ScraperService:
                         if detailed and detailed.overview:
                             successful_count += 1
                             logger.info("Extracted: %s", show.title)
-                            return detailed.model_copy(update={"position": show.position})
+                            final_show = detailed.model_copy(update={"position": show.position})
+                            if on_item_ready:
+                                await on_item_ready(final_show)
+                            return final_show
                         failed_count += 1
                         return show
                     except Exception as e:
@@ -314,6 +319,7 @@ class ScraperService:
         self,
         origin: SiteOrigin,
         max_concurrent: int = 5,
+        on_item_ready: Callable[[ScrapeShow, str], Awaitable[None]] | None = None,
     ) -> TopTenResult | None:
         url = origin.get_top_ten_url()
         if not url:
@@ -343,7 +349,7 @@ class ScraperService:
             semaphore = asyncio.Semaphore(max_concurrent)
             detail_wait_selector = origin.get_detail_wait_selector()
 
-            async def fetch_detail(show: ScrapeShow) -> ScrapeShow:
+            async def fetch_detail(show: ScrapeShow, show_type: str) -> ScrapeShow:
                 if not show.detail_url:
                     return show
                 async with semaphore:
@@ -375,7 +381,10 @@ class ScraperService:
                         detailed = await origin.extract_detail_page(detail_page, show)
                         if detailed and detailed.overview:
                             logger.info("Extracted: %s", show.title)
-                            return detailed.model_copy(update={"position": show.position})
+                            final_show = detailed.model_copy(update={"position": show.position})
+                            if on_item_ready:
+                                await on_item_ready(final_show, show_type)
+                            return final_show
                         return show
                     except Exception as e:
                         logger.warning("Failed to fetch detail for %s: %s", show.slug, e)
@@ -383,8 +392,8 @@ class ScraperService:
                     finally:
                         await detail_page.close()
 
-            movie_tasks = [fetch_detail(show) for show in result.movies.items]
-            series_tasks = [fetch_detail(show) for show in result.series.items]
+            movie_tasks = [fetch_detail(show, "movie") for show in result.movies.items]
+            series_tasks = [fetch_detail(show, "series") for show in result.series.items]
 
             detailed_movies = await asyncio.gather(*movie_tasks, return_exceptions=True)
             detailed_series = await asyncio.gather(*series_tasks, return_exceptions=True)

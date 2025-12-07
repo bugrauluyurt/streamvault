@@ -8,12 +8,12 @@ COPY pyproject.toml uv.lock ./
 
 RUN uv sync --frozen --no-dev --no-install-project
 
+RUN uv run playwright install chromium --with-deps
+
 COPY app/ ./app/
 COPY alembic.ini ./
 
 RUN uv sync --frozen --no-dev
-
-RUN uv run playwright install chromium --with-deps
 
 FROM python:3.13-slim
 

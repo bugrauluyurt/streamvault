@@ -5,7 +5,7 @@ from langchain_core.exceptions import OutputParserException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.enums import ScrapedType
+from app.enums import ScrapedType, ValidationStatus
 from app.models import Job, ScrapedPopularShow, ScrapedShow, ScrapedTopShow
 from app.schemas.tmdb import TMDBMovieSearchResult, TMDBTVSearchResult
 from app.schemas.validation import TMDBValidationResult
@@ -68,18 +68,21 @@ def _format_tv_results(results: list[TMDBTVSearchResult]) -> str:
 async def handle_validate_and_store(job: Job, db: AsyncSession) -> dict:
     source_table = job.payload.get("source_table", "popular_shows")
     limit = job.payload.get("limit", 50)
+    reprocess = job.payload.get("reprocess", False)
+
+    status_filter = ValidationStatus.PROCESSED if reprocess else ValidationStatus.NOT_STARTED
 
     if source_table == "top_shows":
         query = (
             select(ScrapedTopShow)
-            .where(ScrapedTopShow.tmdb_id.is_(None))
+            .where(ScrapedTopShow.validation_status == status_filter)
             .order_by(ScrapedTopShow.created_at.desc())
             .limit(limit)
         )
     else:
         query = (
             select(ScrapedPopularShow)
-            .where(ScrapedPopularShow.tmdb_id.is_(None))
+            .where(ScrapedPopularShow.validation_status == status_filter)
             .order_by(ScrapedPopularShow.created_at.desc())
             .limit(limit)
         )
@@ -93,7 +96,7 @@ async def handle_validate_and_store(job: Job, db: AsyncSession) -> dict:
             "validated": 0,
             "needs_review": 0,
             "skipped": 0,
-            "message": "No items without tmdb_id found",
+            "message": f"No items with status '{status_filter}' found",
         }
 
     tmdb = TMDBService()
@@ -165,6 +168,10 @@ async def handle_validate_and_store(job: Job, db: AsyncSession) -> dict:
 
                 tmdb_id_str = str(result.tmdb_id)
 
+                new_status = (
+                    ValidationStatus.REPROCESSED if reprocess else ValidationStatus.PROCESSED
+                )
+
                 existing = await db.execute(
                     select(ScrapedShow).where(ScrapedShow.tmdb_id == tmdb_id_str).limit(1)
                 )
@@ -175,6 +182,9 @@ async def handle_validate_and_store(job: Job, db: AsyncSession) -> dict:
                         title,
                     )
                     item.tmdb_id = tmdb_id_str
+                    item.confidence = result.confidence
+                    item.validation_status = new_status
+                    await db.flush()
                     skipped += 1
                     continue
 
@@ -191,6 +201,9 @@ async def handle_validate_and_store(job: Job, db: AsyncSession) -> dict:
                 db.add(scraped_show)
 
                 item.tmdb_id = tmdb_id_str
+                item.confidence = result.confidence
+                item.validation_status = new_status
+                await db.flush()
 
                 if needs_review:
                     needs_review_count += 1
@@ -214,8 +227,6 @@ async def handle_validate_and_store(job: Job, db: AsyncSession) -> dict:
                 logger.exception("Error processing %s: %s", title, e)
                 skipped += 1
                 continue
-
-        await db.flush()
 
     finally:
         await tmdb.close()

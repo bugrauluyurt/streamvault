@@ -1,4 +1,4 @@
-.PHONY: install dev db-up db-down lint format typecheck check test test-cov migrate upgrade downgrade up hooks-install hooks-uninstall playwright-install worker docker-build docker-up docker-down docker-logs docker-logs-api docker-logs-worker docker-dev docker-dev-down docker-dev-logs
+.PHONY: install dev db-up db-down lint format typecheck check test test-cov migrate upgrade downgrade up hooks-install hooks-uninstall playwright-install worker docker-build docker-up docker-down docker-logs docker-logs-api docker-logs-worker docker-dev docker-dev-down docker-dev-logs logs-up logs-up-dev logs-ui
 
 install:
 	uv sync
@@ -78,3 +78,12 @@ docker-dev-down:
 
 docker-dev-logs:
 	docker-compose -f docker-compose.dev.yml logs -f
+
+logs-up:
+	docker-compose up -d loki promtail grafana
+
+logs-up-dev:
+	docker-compose -f docker-compose.dev.yml up -d loki promtail grafana
+
+logs-ui:
+	open http://localhost:3001
