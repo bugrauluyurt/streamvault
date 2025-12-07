@@ -238,20 +238,16 @@ Return all shows found on the page."""
             if name:
                 actor_names.append(name)
 
-        cast_elements = await page.query_selector_all(
-            "[data-testid='title-cast-item'], .title-credits__actor"
-        )
+        cast_elements = await page.query_selector_all(".title-credits__actor")
 
         cast_with_images: dict[str, str] = {}
         for element in cast_elements:
             img = await element.query_selector("img")
-            name_el = await element.query_selector(
-                "[data-testid='title-cast-item-name'], .title-credits__actor-name"
-            )
+            name_el = await element.query_selector(".title-credit-name")
             if img and name_el:
                 name = await name_el.inner_text()
                 image_url = await img.get_attribute("src")
-                if name and image_url:
+                if name and image_url and "images.justwatch.com/portrait" in image_url:
                     cast_with_images[name.strip()] = image_url
 
         result: list[ScrapeCastMember] = []
