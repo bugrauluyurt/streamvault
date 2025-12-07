@@ -1,23 +1,23 @@
 from .scrape import (
-    JustWatchParams,
     ScrapeCastMember,
     ScrapeGenre,
-    ScrapeRequest,
+    ScrapePopularRequest,
     ScrapeResponse,
     ScrapeShow,
     ScrapeShowList,
     ScrapeStreamingOption,
-    SiteParams,
+    ScrapeTopTenRequest,
+    ScrapeTopTenResponse,
 )
 
 __all__ = [
-    "JustWatchParams",
     "ScrapeCastMember",
     "ScrapeGenre",
-    "ScrapeRequest",
+    "ScrapePopularRequest",
     "ScrapeResponse",
     "ScrapeShow",
     "ScrapeShowList",
     "ScrapeStreamingOption",
-    "SiteParams",
+    "ScrapeTopTenRequest",
+    "ScrapeTopTenResponse",
 ]

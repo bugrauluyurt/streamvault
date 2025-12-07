@@ -6,7 +6,13 @@ from pydantic import BaseModel
 if TYPE_CHECKING:
     from playwright.async_api import Page
 
-from app.schemas.scrape import ScrapeShow
+from app.schemas.scrape import ScrapeShow, ScrapeShowList
+
+
+class TopTenResult:
+    def __init__(self, movies: ScrapeShowList, series: ScrapeShowList):
+        self.movies = movies
+        self.series = series
 
 
 class SiteOrigin(ABC):
@@ -37,4 +43,13 @@ class SiteOrigin(ABC):
         return None
 
     async def extract_detail_page(self, page: "Page", base_show: ScrapeShow) -> ScrapeShow | None:
+        return None
+
+    def get_top_ten_url(self) -> str | None:
+        return None
+
+    def get_top_ten_wait_selector(self) -> str | None:
+        return None
+
+    async def extract_top_ten(self, page: "Page") -> TopTenResult | None:
         return None

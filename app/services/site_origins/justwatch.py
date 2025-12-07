@@ -15,7 +15,7 @@ from app.schemas.scrape import (
     ScrapeStreamingOption,
 )
 
-from .base import SiteOrigin
+from .base import SiteOrigin, TopTenResult
 
 if TYPE_CHECKING:
     from playwright.async_api import Page
@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 class SiteOriginJustWatch(SiteOrigin):
     BASE_URL = "https://www.justwatch.com/us"
+    TOP_TEN_URL = "https://www.justwatch.com/"
     SOURCE_NAME = "justwatch"
 
     @property
@@ -315,3 +316,84 @@ Return all shows found on the page."""
             return None
         match = re.search(r"wikidata\.org/wiki/(Q\d+)", same_as)
         return match.group(1) if match else None
+
+    def get_top_ten_url(self) -> str | None:
+        return self.TOP_TEN_URL
+
+    def get_top_ten_wait_selector(self) -> str | None:
+        return ".global-titles"
+
+    async def extract_top_ten(self, page: "Page") -> TopTenResult | None:
+        movies: list[ScrapeShow] = []
+        series: list[ScrapeShow] = []
+
+        sections = await page.query_selector_all(".global-titles")
+        logger.debug("Found %d global-titles sections", len(sections))
+
+        for section in sections:
+            header = await section.query_selector(
+                ".global-titles__card h2, .global-titles__card h3"
+            )
+            if not header:
+                continue
+
+            header_text = (await header.inner_text()).lower()
+
+            if "top 10" not in header_text:
+                continue
+
+            is_movies_section = "movie" in header_text and "tv" not in header_text
+            is_series_section = "tv show" in header_text or "tv series" in header_text
+
+            if not is_movies_section and not is_series_section:
+                continue
+
+            items = await section.query_selector_all("a[href*='/movie/'], a[href*='/tv-show/']")
+            logger.debug(
+                "Section header='%s', is_movies=%s, is_series=%s, items=%d",
+                header_text,
+                is_movies_section,
+                is_series_section,
+                len(items),
+            )
+
+            position = 1
+            for item in items:
+                if position > 10:
+                    break
+
+                href = await item.get_attribute("href")
+                if not href:
+                    continue
+
+                is_movie_link = "/movie/" in href
+                show_type = ShowType.MOVIE if is_movie_link else ShowType.SERIES
+
+                slug = href.rstrip("/").split("/")[-1]
+                title = self._slug_to_title(slug)
+                detail_url = f"https://www.justwatch.com{href}" if href.startswith("/") else href
+
+                img = await item.query_selector("img")
+                image_url = await img.get_attribute("src") if img else None
+
+                show = ScrapeShow(
+                    show_type=show_type,
+                    source=self.SOURCE_NAME,
+                    slug=slug,
+                    detail_url=detail_url,
+                    title=title,
+                    image_url=image_url,
+                    position=position,
+                )
+
+                if is_movies_section and len(movies) < 10:
+                    movies.append(show)
+                    position += 1
+                elif is_series_section and len(series) < 10:
+                    series.append(show)
+                    position += 1
+
+        return TopTenResult(
+            movies=ScrapeShowList(items=movies),
+            series=ScrapeShowList(items=series),
+        )

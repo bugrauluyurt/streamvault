@@ -5,29 +5,21 @@ from pydantic import BaseModel, ConfigDict
 from app.enums import ItemType, ShowType
 
 
-class JustWatchParams(BaseModel):
+class ScrapePopularRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    providers: list[str] = ["amp", "atp", "dnp", "hlu", "mxx", "nfx", "stz"]
-    rating_imdb: list[int] | None = None
-    tomato_meter: int | None = None
-
-
-class SiteParams(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
+    url: str
     origin: Literal["justwatch"]
-    params: JustWatchParams
-
-
-class ScrapeRequest(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    site_params: SiteParams
     max_items: int | None = None
     download_tile_images: bool = False
     download_cast_images: bool = False
     download_background_images: bool = False
+
+
+class ScrapeTopTenRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    origin: Literal["justwatch"]
 
 
 class ScrapeGenre(BaseModel):
@@ -88,6 +80,7 @@ class ScrapeShow(BaseModel):
     local_image_path: str | None = None
     streaming_services: list[str] | None = None
     streaming_options: list[ScrapeStreamingOption] | None = None
+    position: int | None = None
 
 
 class ScrapeShowList(BaseModel):
@@ -101,3 +94,11 @@ class ScrapeResponse(BaseModel):
 
     shows: list[ScrapeShow]
     url: str
+
+
+class ScrapeTopTenResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    date: str
+    movies: list[ScrapeShow]
+    series: list[ScrapeShow]

@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from app.core.config import settings
 from app.schemas.scrape import ScrapeCastMember, ScrapeShow, ScrapeShowList
 from app.services.llm_service import LLMService
-from app.services.site_origins.base import SiteOrigin
+from app.services.site_origins.base import SiteOrigin, TopTenResult
 
 logger = logging.getLogger(__name__)
 
@@ -304,5 +304,90 @@ class ScraperService:
                 final_shows = [s for s in shows_with_cast_images if isinstance(s, ScrapeShow)]
 
             return ScrapeShowList(items=final_shows)
+        finally:
+            await self._cleanup(p, browser, context)
+
+    async def extract_top_ten(
+        self,
+        origin: SiteOrigin,
+        max_concurrent: int = 5,
+    ) -> TopTenResult | None:
+        url = origin.get_top_ten_url()
+        if not url:
+            return None
+
+        p, browser, context, page = await self._create_page()
+        try:
+            await page.goto(url, wait_until="domcontentloaded")
+
+            wait_selector = origin.get_top_ten_wait_selector()
+            if wait_selector:
+                with contextlib.suppress(Exception):
+                    await page.wait_for_selector(wait_selector, timeout=10000)
+
+            await asyncio.sleep(5)
+            await page.evaluate("window.scrollBy(0, 2000)")
+            await asyncio.sleep(3)
+            logger.debug("Top ten page loaded, extracting shows")
+
+            result = await origin.extract_top_ten(page)
+            if result is None:
+                return None
+
+            semaphore = asyncio.Semaphore(max_concurrent)
+            detail_wait_selector = origin.get_detail_wait_selector()
+
+            async def fetch_detail(show: ScrapeShow) -> ScrapeShow:
+                if not show.detail_url:
+                    return show
+                async with semaphore:
+                    detail_page = await context.new_page()
+                    try:
+                        await detail_page.goto(show.detail_url, wait_until="domcontentloaded")
+                        if detail_wait_selector:
+                            with contextlib.suppress(Exception):
+                                await detail_page.wait_for_selector(
+                                    detail_wait_selector, timeout=10000
+                                )
+                        json_ld_check_js = """() => {
+                            const scripts = document.querySelectorAll(
+                                'script[type="application/ld+json"]'
+                            );
+                            for (const s of scripts) {
+                                try {
+                                    const data = JSON.parse(s.textContent);
+                                    if (data['@type'] === 'Movie') return true;
+                                    if (data['@type'] === 'TVSeries') return true;
+                                } catch {}
+                            }
+                            return false;
+                        }"""
+                        with contextlib.suppress(Exception):
+                            await detail_page.wait_for_function(json_ld_check_js, timeout=15000)
+                        await asyncio.sleep(3)
+                        detailed = await origin.extract_detail_page(detail_page, show)
+                        if detailed and detailed.overview:
+                            logger.debug("Extracted details for %s", show.slug)
+                            return detailed.model_copy(update={"position": show.position})
+                        return show
+                    except Exception as e:
+                        logger.warning("Failed to fetch detail for %s: %s", show.slug, e)
+                        return show
+                    finally:
+                        await detail_page.close()
+
+            movie_tasks = [fetch_detail(show) for show in result.movies.items]
+            series_tasks = [fetch_detail(show) for show in result.series.items]
+
+            detailed_movies = await asyncio.gather(*movie_tasks, return_exceptions=True)
+            detailed_series = await asyncio.gather(*series_tasks, return_exceptions=True)
+
+            valid_movies = [s for s in detailed_movies if isinstance(s, ScrapeShow)]
+            valid_series = [s for s in detailed_series if isinstance(s, ScrapeShow)]
+
+            return TopTenResult(
+                movies=ScrapeShowList(items=valid_movies),
+                series=ScrapeShowList(items=valid_series),
+            )
         finally:
             await self._cleanup(p, browser, context)
