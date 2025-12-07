@@ -1,6 +1,6 @@
 # StreamVault
 
-FastAPI starter project with async SQLAlchemy, using astral.sh's toolchain (uv, ruff, ty).
+A streaming service data aggregator that scrapes, validates, and stores movie and TV show information from platforms like JustWatch. Uses LLM-powered extraction (via Ollama) and TMDB for data validation and enrichment.
 
 ## Prerequisites
 
@@ -143,81 +143,28 @@ streamvault/
 - **Ollama** - Local LLM runtime
 - **Playwright** - Browser automation
 
-## LLM Setup (Ollama)
+## Ollama Setup
 
-The project includes Ollama for local LLM inference with GPU support. Two profiles are available:
-- `nvidia` - For NVIDIA GPUs (RTX 5080, etc.)
-- `amd` - For AMD GPUs (7900 XTX, etc.) using ROCm
+StreamVault requires an external Ollama instance for LLM-powered data extraction. Ollama runs separately on the host machine (not in Docker).
 
-### Prerequisites
+### Installation
 
-**NVIDIA GPU:**
-```bash
-# Install NVIDIA Container Toolkit
-curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
-sudo nvidia-ctk runtime configure --runtime=docker
-sudo systemctl restart docker
-```
-
-**AMD GPU:**
-```bash
-# Install ROCm (Ubuntu 22.04+)
-sudo apt install rocm-hip-libraries
-sudo usermod -a -G video,render $USER
-# Logout and login for group changes
-```
-
-### Starting Ollama
+Install Ollama from [ollama.com](https://ollama.com) and pull the required model:
 
 ```bash
-# For NVIDIA GPU
-make ollama-nvidia
-
-# For AMD GPU
-make ollama-amd
-
-# Stop Ollama
-make ollama-down
+ollama pull qwen3:30b
 ```
 
-Models are automatically pulled on first startup (qwen2.5:7b and llama3.2:3b by default).
+### Configuration
 
-### Installing Playwright
+Set the Ollama endpoint in your `.env` file:
 
 ```bash
-make playwright-install
-```
+# Local Ollama (production)
+OLLAMA_HOST=http://localhost:11434
 
-### LLM Commands
-
-| Command | Description |
-|---------|-------------|
-| `make ollama-nvidia` | Start Ollama with NVIDIA GPU |
-| `make ollama-amd` | Start Ollama with AMD GPU (ROCm) |
-| `make ollama-down` | Stop Ollama container |
-| `make playwright-install` | Install Playwright browsers |
-
-### Usage Example
-
-```python
-from pydantic import BaseModel, Field
-from app.services.scraper_service import ScraperService
-
-class ProductData(BaseModel):
-    title: str = Field(description="Product title")
-    price: float = Field(description="Price in USD")
-    availability: str = Field(description="In stock or out of stock")
-
-scraper = ScraperService()
-product = await scraper.extract_data(
-    url="https://example.com/product/123",
-    schema=ProductData,
-)
-print(product.title, product.price)
+# Remote Ollama (development)
+OLLAMA_HOST=http://10.0.0.139:11434
 ```
 
 ## Environment Variables
