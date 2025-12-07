@@ -1,84 +1,96 @@
 @baseUrl = http://localhost:8000
 
-### Create Top Ten Scrape Job
-POST {{baseUrl}}/jobs
-Content-Type: application/json
-
-{
-  "job_type": "scrape_top_ten",
-  "payload": {}
-}
-
-### Create Popular Scrape Job (Movies)
-POST {{baseUrl}}/jobs
-Content-Type: application/json
-
-{
-  "job_type": "scrape_popular",
-  "payload": {
-    "url": "https://www.justwatch.com/us/movies"
-  }
-}
-
-### Create Popular Scrape Job (Series)
-POST {{baseUrl}}/jobs
-Content-Type: application/json
-
-{
-  "job_type": "scrape_popular",
-  "payload": {
-    "url": "https://www.justwatch.com/us/tv-shows"
-  }
-}
-
 ### List All Jobs
+
 GET {{baseUrl}}/jobs
 
 ### List Pending Jobs
+
 GET {{baseUrl}}/jobs?status=pending
 
 ### List Completed Jobs
+
 GET {{baseUrl}}/jobs?status=completed
 
 ### List Failed Jobs
+
 GET {{baseUrl}}/jobs?status=failed
 
 ### Get Job by ID
+
 GET {{baseUrl}}/jobs/1
 
 ### Retry Failed Job
+
 POST {{baseUrl}}/jobs/1/retry
 
-### Validate and Store - Popular Shows (default limit 50)
+### Create Top Ten Scrape Job
+
 POST {{baseUrl}}/jobs
 Content-Type: application/json
 
 {
-  "job_type": "validate_and_store",
-  "payload": {
-    "source_table": "popular_shows"
-  }
+    "job_type": "scrape_top_ten",
+    "payload": {}
+}
+
+### Create Popular Scrape Job (Movies)
+
+POST {{baseUrl}}/jobs
+Content-Type: application/json
+
+{
+    "job_type": "scrape_popular",
+    "payload": {
+        "url": "https://www.justwatch.com/us/movies"
+    }
+}
+
+### Create Popular Scrape Job (Series)
+
+POST {{baseUrl}}/jobs
+Content-Type: application/json
+
+{
+    "job_type": "scrape_popular",
+    "payload": {
+        "url": "https://www.justwatch.com/us/tv-shows"
+    }
 }
 
 ### Validate and Store - Top Shows
+
 POST {{baseUrl}}/jobs
 Content-Type: application/json
 
 {
-  "job_type": "validate_and_store",
-  "payload": {
-    "source_table": "top_shows"
-  }
+    "job_type": "validate_and_store",
+    "payload": {
+        "source_table": "top_shows"
+    }
+}
+
+### Validate and Store - Popular Shows (default limit 50)
+
+POST {{baseUrl}}/jobs
+Content-Type: application/json
+
+{
+    "job_type": "validate_and_store",
+    "payload": {
+        "source_table": "popular_shows"
+    }
 }
 
 ### Validate and Store - Custom Limit
+
 POST {{baseUrl}}/jobs
 Content-Type: application/json
 
 {
-  "job_type": "validate_and_store",
-  "payload": {
-    "source_table": "popular_shows",
-    "limit": 10
-  }
+    "job_type": "validate_and_store",
+    "payload": {
+        "source_table": "popular_shows",
+        "limit": 10
+    }
 }
