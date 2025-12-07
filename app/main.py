@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.routers import health, scrape
+from app.routers import health, scraped_show, shows
 
 
 @asynccontextmanager
@@ -19,4 +19,5 @@ app = FastAPI(
 )
 
 app.include_router(health.router)
-app.include_router(scrape.router)
+app.include_router(scraped_show.router)
+app.include_router(shows.router)

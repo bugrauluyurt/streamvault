@@ -6,7 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.enums import ShowType
 
 from .base import Base
-from .scraped import ScrapedShow
+from .scraped_show import ScrapedShow
 
 
 class ScrapedTopShow(Base):
