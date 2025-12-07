@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from sqlalchemy import select, text, update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import JobStatus, JobType
@@ -50,38 +50,27 @@ class QueueService:
         return list(result.scalars().all())
 
     async def claim_job(self, worker_id: str) -> Job | None:
-        claim_sql = text("""
-            UPDATE jobs
-            SET status = :processing,
-                worker_id = :worker_id,
-                started_at = now(),
-                attempts = attempts + 1
-            WHERE id = (
-                SELECT id FROM jobs
-                WHERE status = :pending
-                  AND scheduled_for <= now()
-                ORDER BY priority DESC, created_at ASC
-                LIMIT 1
-                FOR UPDATE SKIP LOCKED
-            )
-            RETURNING *
-        """)
-
-        result = await self.db.execute(
-            claim_sql,
-            {
-                "processing": JobStatus.PROCESSING.value,
-                "pending": JobStatus.PENDING.value,
-                "worker_id": worker_id,
-            },
+        stmt = (
+            select(Job)
+            .where(Job.status == JobStatus.PENDING, Job.scheduled_for <= datetime.now())
+            .order_by(Job.priority.desc(), Job.created_at.asc())
+            .limit(1)
+            .with_for_update(skip_locked=True)
         )
-        row = result.fetchone()
-        if row is None:
+
+        result = await self.db.execute(stmt)
+        job = result.scalar_one_or_none()
+
+        if job is None:
             return None
 
-        stmt = select(Job).where(Job.id == row.id)
-        job_result = await self.db.execute(stmt)
-        return job_result.scalar_one()
+        job.status = JobStatus.PROCESSING
+        job.worker_id = worker_id
+        job.started_at = datetime.now()
+        job.attempts += 1
+
+        await self.db.flush()
+        return job
 
     async def complete_job(self, job_id: int, result: dict | None = None) -> None:
         stmt = (
