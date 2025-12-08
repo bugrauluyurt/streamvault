@@ -7,10 +7,10 @@ dev:
 	uv run uvicorn app.main:app --reload
 
 db-up:
-	docker-compose up -d db
+	docker compose up -d db
 
 db-down:
-	docker-compose down db
+	docker compose down db
 
 lint:
 	uv run ruff check --fix .
@@ -56,40 +56,40 @@ scheduler:
 	uv run python -m app.workers.scheduler_cli
 
 docker-build:
-	docker-compose build
+	docker compose build
 
 docker-up:
-	docker-compose up -d
+	docker compose up -d
 
 docker-down:
-	docker-compose down
+	docker compose down
 
 docker-logs:
-	docker-compose logs -f
+	docker compose logs -f
 
 docker-logs-api:
-	docker-compose logs -f api
+	docker compose logs -f api
 
 docker-logs-worker:
-	docker-compose logs -f worker
+	docker compose logs -f worker
 
 docker-logs-scheduler:
-	docker-compose logs -f scheduler
+	docker compose logs -f scheduler
 
 docker-dev:
-	docker-compose -f docker-compose.dev.yml up --build
+	docker compose -f docker-compose.dev.yml up --build
 
 docker-dev-down:
-	docker-compose -f docker-compose.dev.yml down
+	docker compose -f docker-compose.dev.yml down
 
 docker-dev-logs:
-	docker-compose -f docker-compose.dev.yml logs -f
+	docker compose -f docker-compose.dev.yml logs -f
 
 logs-up:
-	docker-compose up -d loki promtail grafana
+	docker compose up -d loki promtail grafana
 
 logs-up-dev:
-	docker-compose -f docker-compose.dev.yml up -d loki promtail grafana
+	docker compose -f docker-compose.dev.yml up -d loki promtail grafana
 
 logs-ui:
 	open http://localhost:3001

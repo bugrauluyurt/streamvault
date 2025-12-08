@@ -541,7 +541,7 @@ SHARED_DIR=/app/data/shared
 make docker-down
 
 # Stop and remove volumes (WARNING: deletes data)
-docker-compose down -v
+docker compose down -v
 ```
 
 ## Centralized Logging
