@@ -9,7 +9,7 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - ${POSTGRES_DATA_DIR:-./data/postgres}:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
@@ -40,7 +40,7 @@ services:
     volumes:
       - ./app:/app/app:ro
       - ./alembic.ini:/app/alembic.ini:ro
-      - ./data/shared:/app/data/shared
+      - ${SHARED_DIR:-./data/shared}:/app/data/shared
     command: >
       sh -c "uv run alembic upgrade head &&
              uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
@@ -69,7 +69,7 @@ services:
       SHARED_DIR: /app/data/shared
     volumes:
       - ./app:/app/app:ro
-      - ./data/shared:/app/data/shared
+      - ${SHARED_DIR:-./data/shared}:/app/data/shared
     command: >
       sh -c "uv run watchfiles 'python -m app.workers.cli' app/"
 
@@ -102,7 +102,7 @@ services:
       - "3100:3100"
     volumes:
       - ./docker/loki/loki-config.yml:/etc/loki/local-config.yaml
-      - ./data/loki:/loki
+      - ${LOKI_DATA_DIR:-./data/loki}:/loki
     command: -config.file=/etc/loki/local-config.yaml
 
   promtail:
@@ -127,6 +127,6 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: "admin"
     volumes:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning
-      - ./data/grafana:/var/lib/grafana
+      - ${GRAFANA_DATA_DIR:-./data/grafana}:/var/lib/grafana
     depends_on:
       - loki
