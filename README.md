@@ -1,4 +1,4 @@
-![StreamVault](assets/streamvault_logo.png)
+![StreamVault](assets/streamvault_logo_wide.png)
 
 A streaming service data aggregator that scrapes, validates, and stores movie and TV show information from platforms like JustWatch. Uses LLM-powered extraction (via Ollama) and TMDB for data validation and enrichment.
 
@@ -64,59 +64,59 @@ API docs: http://localhost:8000/docs
 
 ## Development Commands
 
-| Command | Description |
-|---------|-------------|
-| `make install` | Install dependencies with uv |
-| `make dev` | Run FastAPI with hot-reload |
-| `make worker` | Start background job workers |
-| `make scheduler` | Start job scheduler (APScheduler) |
-| `make db-up` | Start PostgreSQL container |
-| `make db-down` | Stop PostgreSQL container |
-| `make up` | Full startup (db + migrations + dev) |
+| Command          | Description                          |
+| ---------------- | ------------------------------------ |
+| `make install`   | Install dependencies with uv         |
+| `make dev`       | Run FastAPI with hot-reload          |
+| `make worker`    | Start background job workers         |
+| `make scheduler` | Start job scheduler (APScheduler)    |
+| `make db-up`     | Start PostgreSQL container           |
+| `make db-down`   | Stop PostgreSQL container            |
+| `make up`        | Full startup (db + migrations + dev) |
 
 ### Code Quality
 
-| Command | Description |
-|---------|-------------|
-| `make lint` | Run ruff linter with auto-fix |
-| `make format` | Format code with ruff |
-| `make typecheck` | Run ty type checker |
-| `make check` | Run all checks (format + lint + typecheck) |
-| `make hooks-install` | Install pre-commit hooks |
-| `make hooks-uninstall` | Uninstall pre-commit hooks |
+| Command                | Description                                |
+| ---------------------- | ------------------------------------------ |
+| `make lint`            | Run ruff linter with auto-fix              |
+| `make format`          | Format code with ruff                      |
+| `make typecheck`       | Run ty type checker                        |
+| `make check`           | Run all checks (format + lint + typecheck) |
+| `make hooks-install`   | Install pre-commit hooks                   |
+| `make hooks-uninstall` | Uninstall pre-commit hooks                 |
 
 ### Testing
 
-| Command | Description |
-|---------|-------------|
-| `make test` | Run tests with pytest |
+| Command         | Description                    |
+| --------------- | ------------------------------ |
+| `make test`     | Run tests with pytest          |
 | `make test-cov` | Run tests with coverage report |
 
 ### Database
 
-| Command | Description |
-|---------|-------------|
+| Command                          | Description                  |
+| -------------------------------- | ---------------------------- |
 | `make migrate msg="description"` | Create new Alembic migration |
-| `make upgrade` | Apply pending migrations |
-| `make downgrade` | Rollback last migration |
+| `make upgrade`                   | Apply pending migrations     |
+| `make downgrade`                 | Rollback last migration      |
 
 ### Docker
 
-| Command | Description |
-|---------|-------------|
-| `make docker-build` | Build Docker images |
-| `make docker-up` | Start all containers (production mode) |
-| `make docker-down` | Stop all containers |
-| `make docker-logs` | Follow logs from all containers |
-| `make docker-logs-api` | Follow API container logs |
-| `make docker-logs-worker` | Follow worker container logs |
-| `make docker-logs-scheduler` | Follow scheduler container logs |
-| `make docker-dev` | Start dev environment with hot-reload |
-| `make docker-dev-down` | Stop dev environment |
-| `make docker-dev-logs` | Follow dev environment logs |
-| `make logs-up` | Start logging stack (Loki + Grafana) |
-| `make logs-up-dev` | Start logging stack for dev environment |
-| `make logs-ui` | Open Grafana UI in browser |
+| Command                      | Description                             |
+| ---------------------------- | --------------------------------------- |
+| `make docker-build`          | Build Docker images                     |
+| `make docker-up`             | Start all containers (production mode)  |
+| `make docker-down`           | Stop all containers                     |
+| `make docker-logs`           | Follow logs from all containers         |
+| `make docker-logs-api`       | Follow API container logs               |
+| `make docker-logs-worker`    | Follow worker container logs            |
+| `make docker-logs-scheduler` | Follow scheduler container logs         |
+| `make docker-dev`            | Start dev environment with hot-reload   |
+| `make docker-dev-down`       | Stop dev environment                    |
+| `make docker-dev-logs`       | Follow dev environment logs             |
+| `make logs-up`               | Start logging stack (Loki + Grafana)    |
+| `make logs-up-dev`           | Start logging stack for dev environment |
+| `make logs-ui`               | Open Grafana UI in browser              |
 
 ## Project Structure
 
@@ -179,58 +179,59 @@ OLLAMA_HOST=http://10.0.0.139:11434
 
 All configuration is done via environment variables in `.env`:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `POSTGRES_USER` | `postgres` | PostgreSQL username |
-| `POSTGRES_PASSWORD` | `postgres` | PostgreSQL password |
-| `POSTGRES_DB` | `streamvault` | Database name |
-| `POSTGRES_HOST` | `localhost` | Database host |
-| `POSTGRES_PORT` | `5432` | Database port |
-| `OLLAMA_HOST` | `http://localhost:11434` | Ollama API endpoint |
-| `OLLAMA_MODEL` | `qwen3:30b` | Default model for extraction |
-| `TMDB_API_KEY` | - | TMDB API key (required for TMDB routes) |
-| `QUEUE_WORKERS` | `2` | Number of worker tasks per process |
-| `QUEUE_POLL_INTERVAL` | `1.0` | Seconds between queue polls |
-| `SHARED_DIR` | `/app/data/shared` | Shared storage directory |
+| Variable              | Default                  | Description                             |
+| --------------------- | ------------------------ | --------------------------------------- |
+| `POSTGRES_USER`       | `postgres`               | PostgreSQL username                     |
+| `POSTGRES_PASSWORD`   | `postgres`               | PostgreSQL password                     |
+| `POSTGRES_DB`         | `streamvault`            | Database name                           |
+| `POSTGRES_HOST`       | `localhost`              | Database host                           |
+| `POSTGRES_PORT`       | `5432`                   | Database port                           |
+| `OLLAMA_HOST`         | `http://localhost:11434` | Ollama API endpoint                     |
+| `OLLAMA_MODEL`        | `qwen3:30b`              | Default model for extraction            |
+| `TMDB_API_KEY`        | -                        | TMDB API key (required for TMDB routes) |
+| `QUEUE_WORKERS`       | `2`                      | Number of worker tasks per process      |
+| `QUEUE_POLL_INTERVAL` | `1.0`                    | Seconds between queue polls             |
+| `SHARED_DIR`          | `/app/data/shared`       | Shared storage directory                |
 
 ## API Endpoints
 
 ### Scrape Routes (`/scraped`)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/scraped/popular` | Scrape popular shows from a URL |
-| POST | `/scraped/top-ten` | Scrape top 10 movies and series |
+| Method | Endpoint           | Description                     |
+| ------ | ------------------ | ------------------------------- |
+| POST   | `/scraped/popular` | Scrape popular shows from a URL |
+| POST   | `/scraped/top-ten` | Scrape top 10 movies and series |
 
 ### Shows Routes (`/shows`)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/shows/scraped` | Get paginated list of scraped shows |
-| GET | `/shows/scraped/top-ten` | Get top 10 movies and series from latest batch |
-| GET | `/shows/scraped/{id}` | Get a single scraped show by ID |
+| Method | Endpoint                 | Description                                    |
+| ------ | ------------------------ | ---------------------------------------------- |
+| GET    | `/shows/scraped`         | Get paginated list of scraped shows            |
+| GET    | `/shows/scraped/top-ten` | Get top 10 movies and series from latest batch |
+| GET    | `/shows/scraped/{id}`    | Get a single scraped show by ID                |
 
 ### Jobs Routes (`/jobs`)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/jobs` | Enqueue a new background job |
-| GET | `/jobs` | List jobs (with optional status filter) |
-| GET | `/jobs/{id}` | Get job status and result |
-| POST | `/jobs/{id}/retry` | Retry a failed job |
+| Method | Endpoint           | Description                             |
+| ------ | ------------------ | --------------------------------------- |
+| POST   | `/jobs`            | Enqueue a new background job            |
+| GET    | `/jobs`            | List jobs (with optional status filter) |
+| GET    | `/jobs/{id}`       | Get job status and result               |
+| POST   | `/jobs/{id}/retry` | Retry a failed job                      |
 
 ### TMDB Routes (`/tmdb`)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/tmdb/search/movies` | Search TMDB for movies by query |
-| GET | `/tmdb/search/tv` | Search TMDB for TV series by query |
+| Method | Endpoint              | Description                        |
+| ------ | --------------------- | ---------------------------------- |
+| GET    | `/tmdb/search/movies` | Search TMDB for movies by query    |
+| GET    | `/tmdb/search/tv`     | Search TMDB for TV series by query |
 
 ## API Examples
 
 ### Scrape Endpoints
 
 **Scrape popular shows:**
+
 ```bash
 curl -X POST http://localhost:8000/scraped/popular \
   -H "Content-Type: application/json" \
@@ -245,6 +246,7 @@ curl -X POST http://localhost:8000/scraped/popular \
 ```
 
 **Scrape top 10:**
+
 ```bash
 curl -X POST http://localhost:8000/scraped/top-ten \
   -H "Content-Type: application/json" \
@@ -256,16 +258,19 @@ curl -X POST http://localhost:8000/scraped/top-ten \
 ### Shows Endpoints
 
 **Get paginated scraped shows:**
+
 ```bash
 curl "http://localhost:8000/shows/scraped?skip=0&limit=20"
 ```
 
 **Get top 10 movies and series:**
+
 ```bash
 curl http://localhost:8000/shows/scraped/top-ten
 ```
 
 **Get a single show by ID:**
+
 ```bash
 curl http://localhost:8000/shows/scraped/1
 ```
@@ -273,6 +278,7 @@ curl http://localhost:8000/shows/scraped/1
 ### Jobs Endpoints
 
 **Enqueue a scrape job:**
+
 ```bash
 curl -X POST http://localhost:8000/jobs \
   -H "Content-Type: application/json" \
@@ -283,6 +289,7 @@ curl -X POST http://localhost:8000/jobs \
 ```
 
 **Enqueue a popular scrape job:**
+
 ```bash
 curl -X POST http://localhost:8000/jobs \
   -H "Content-Type: application/json" \
@@ -296,16 +303,19 @@ curl -X POST http://localhost:8000/jobs \
 ```
 
 **Get job status:**
+
 ```bash
 curl http://localhost:8000/jobs/1
 ```
 
 **List pending jobs:**
+
 ```bash
 curl "http://localhost:8000/jobs?status=pending"
 ```
 
 **Retry a failed job:**
+
 ```bash
 curl -X POST http://localhost:8000/jobs/1/retry
 ```
@@ -313,16 +323,19 @@ curl -X POST http://localhost:8000/jobs/1/retry
 ### TMDB Endpoints
 
 **Search for movies:**
+
 ```bash
 curl "http://localhost:8000/tmdb/search/movies?query=inception&page=1"
 ```
 
 **Search for TV series:**
+
 ```bash
 curl "http://localhost:8000/tmdb/search/tv?query=breaking%20bad&page=1"
 ```
 
 **Search with details:**
+
 ```bash
 curl "http://localhost:8000/tmdb/search/movies?query=inception&include_details=true"
 ```
@@ -366,18 +379,18 @@ QUEUE_WORKERS=4 make worker
 
 ### Job Types
 
-| Job Type | Description |
-|----------|-------------|
-| `scrape_top_ten` | Scrape top 10 movies and series |
-| `scrape_popular` | Scrape popular shows from a URL |
+| Job Type             | Description                                  |
+| -------------------- | -------------------------------------------- |
+| `scrape_top_ten`     | Scrape top 10 movies and series              |
+| `scrape_popular`     | Scrape popular shows from a URL              |
 | `validate_and_store` | Validate scraped data against TMDB and store |
 
 ### Queue Configuration
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `QUEUE_WORKERS` | `2` | Number of worker tasks per process |
-| `QUEUE_POLL_INTERVAL` | `1.0` | Seconds between queue polls |
+| Variable              | Default | Description                        |
+| --------------------- | ------- | ---------------------------------- |
+| `QUEUE_WORKERS`       | `2`     | Number of worker tasks per process |
+| `QUEUE_POLL_INTERVAL` | `1.0`   | Seconds between queue polls        |
 
 ## Job Scheduler
 
@@ -387,13 +400,13 @@ The scheduler automatically enqueues jobs at scheduled times using APScheduler. 
 
 Jobs are staggered to avoid conflicts and ensure scraping completes before validation:
 
-| Time (Run 1) | Time (Run 2) | Job |
-|--------------|--------------|-----|
-| 06:00 | 15:00 | Scrape top 10 |
-| 06:30 | 15:30 | Scrape popular movies |
-| 07:00 | 16:00 | Scrape popular series |
-| 07:30 | 16:30 | Validate top 10 |
-| 08:00 | 17:00 | Validate popular |
+| Time (Run 1) | Time (Run 2) | Job                   |
+| ------------ | ------------ | --------------------- |
+| 06:00        | 15:00        | Scrape top 10         |
+| 06:30        | 15:30        | Scrape popular movies |
+| 07:00        | 16:00        | Scrape popular series |
+| 07:30        | 16:30        | Validate top 10       |
+| 08:00        | 17:00        | Validate popular      |
 
 ### Running the Scheduler
 
@@ -480,19 +493,19 @@ make docker-logs
 
 ### Container Details
 
-| Container | Description | Network Mode |
-|-----------|-------------|--------------|
-| `streamvault-api` | FastAPI application server | host |
-| `streamvault-worker` | Background job workers | host |
-| `streamvault-scheduler` | APScheduler job scheduler | host |
-| `streamvault-db` | PostgreSQL 16 database | bridge (port 5432) |
+| Container               | Description                | Network Mode       |
+| ----------------------- | -------------------------- | ------------------ |
+| `streamvault-api`       | FastAPI application server | host               |
+| `streamvault-worker`    | Background job workers     | host               |
+| `streamvault-scheduler` | APScheduler job scheduler  | host               |
+| `streamvault-db`        | PostgreSQL 16 database     | bridge (port 5432) |
 
 ### Data Persistence
 
-| Volume | Path | Purpose |
-|--------|------|---------|
-| `./data/postgres` | `/var/lib/postgresql/data` | Database files |
-| `./data/shared` | `/app/data/shared` | Downloaded images, scraped files |
+| Volume            | Path                       | Purpose                          |
+| ----------------- | -------------------------- | -------------------------------- |
+| `./data/postgres` | `/var/lib/postgresql/data` | Database files                   |
+| `./data/shared`   | `/app/data/shared`         | Downloaded images, scraped files |
 
 ### Production Environment Variables
 
@@ -575,13 +588,13 @@ make logs-ui        # Opens http://localhost:3001
 
 ### LogQL Query Examples
 
-| Query | Description |
-|-------|-------------|
-| `{container_name="streamvault-api-dev"}` | All API logs |
-| `{container_name="streamvault-worker-dev"}` | All worker logs |
-| `{container_name=~"streamvault.*"}` | All StreamVault logs |
-| `{service="api"} \|= "ERROR"` | API errors |
-| `{service="worker"} \|= "job"` | Worker job-related logs |
+| Query                                               | Description                   |
+| --------------------------------------------------- | ----------------------------- |
+| `{container_name="streamvault-api-dev"}`            | All API logs                  |
+| `{container_name="streamvault-worker-dev"}`         | All worker logs               |
+| `{container_name=~"streamvault.*"}`                 | All StreamVault logs          |
+| `{service="api"} \|= "ERROR"`                       | API errors                    |
+| `{service="worker"} \|= "job"`                      | Worker job-related logs       |
 | `{container_name=~"streamvault.*"} \|~ "(?i)error"` | Case-insensitive error search |
 
 ### Log Retention
@@ -590,12 +603,12 @@ Logs are retained for **14 days** by default. This can be configured in `docker/
 
 ```yaml
 limits_config:
-  retention_period: 336h  # 14 days
+  retention_period: 336h # 14 days
 ```
 
 ### Data Persistence
 
-| Volume | Path | Purpose |
-|--------|------|---------|
-| `./data/loki` | `/loki` | Log storage and indexes |
+| Volume           | Path               | Purpose                         |
+| ---------------- | ------------------ | ------------------------------- |
+| `./data/loki`    | `/loki`            | Log storage and indexes         |
 | `./data/grafana` | `/var/lib/grafana` | Grafana dashboards and settings |
