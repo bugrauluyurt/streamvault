@@ -1,4 +1,4 @@
-# StreamVault
+![StreamVault](assets/streamvault_logo.png)
 
 A streaming service data aggregator that scrapes, validates, and stores movie and TV show information from platforms like JustWatch. Uses LLM-powered extraction (via Ollama) and TMDB for data validation and enrichment.
 
