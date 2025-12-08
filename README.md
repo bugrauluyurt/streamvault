@@ -35,6 +35,9 @@ make dev
 
 # 7. Start workers (Terminal 2)
 make worker
+
+# 8. Start scheduler (Terminal 3, optional)
+make scheduler
 ```
 
 ### Option B: Docker Development (Full containerized setup)
@@ -45,7 +48,7 @@ Run everything in Docker with hot-reload:
 # 1. Copy environment file
 cp .env.example .env
 
-# 2. Start all services (db + api + worker)
+# 2. Start all services (db + api + worker + scheduler)
 make docker-dev
 
 # View logs
@@ -66,6 +69,7 @@ API docs: http://localhost:8000/docs
 | `make install` | Install dependencies with uv |
 | `make dev` | Run FastAPI with hot-reload |
 | `make worker` | Start background job workers |
+| `make scheduler` | Start job scheduler (APScheduler) |
 | `make db-up` | Start PostgreSQL container |
 | `make db-down` | Stop PostgreSQL container |
 | `make up` | Full startup (db + migrations + dev) |
@@ -106,6 +110,7 @@ API docs: http://localhost:8000/docs
 | `make docker-logs` | Follow logs from all containers |
 | `make docker-logs-api` | Follow API container logs |
 | `make docker-logs-worker` | Follow worker container logs |
+| `make docker-logs-scheduler` | Follow scheduler container logs |
 | `make docker-dev` | Start dev environment with hot-reload |
 | `make docker-dev-down` | Stop dev environment |
 | `make docker-dev-logs` | Follow dev environment logs |
@@ -374,6 +379,65 @@ QUEUE_WORKERS=4 make worker
 | `QUEUE_WORKERS` | `2` | Number of worker tasks per process |
 | `QUEUE_POLL_INTERVAL` | `1.0` | Seconds between queue polls |
 
+## Job Scheduler
+
+The scheduler automatically enqueues jobs at scheduled times using APScheduler. It runs as a separate process and ensures scraping and validation tasks run twice daily.
+
+### Schedule
+
+Jobs are staggered to avoid conflicts and ensure scraping completes before validation:
+
+| Time (Run 1) | Time (Run 2) | Job |
+|--------------|--------------|-----|
+| 06:00 | 15:00 | Scrape top 10 |
+| 06:30 | 15:30 | Scrape popular movies |
+| 07:00 | 16:00 | Scrape popular series |
+| 07:30 | 16:30 | Validate top 10 |
+| 08:00 | 17:00 | Validate popular |
+
+### Running the Scheduler
+
+```bash
+# Native development
+make scheduler
+
+# Docker development (included in docker-dev)
+make docker-dev
+
+# View scheduler logs
+make docker-logs-scheduler
+```
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Scheduler Process                       │
+├─────────────────────────────────────────────────────────────┤
+│  APScheduler (AsyncIOScheduler)                              │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  Cron Triggers                                       │    │
+│  │  • 06:00/15:00 → scrape_top_ten                     │    │
+│  │  • 06:30/15:30 → scrape_popular (movies)            │    │
+│  │  • 07:00/16:00 → scrape_popular (series)            │    │
+│  │  • 07:30/16:30 → validate_and_store (top_shows)     │    │
+│  │  • 08:00/17:00 → validate_and_store (popular_shows) │    │
+│  └─────────────────────────────────────────────────────┘    │
+│                           │                                  │
+│                           ▼                                  │
+│                  ┌─────────────────┐                        │
+│                  │  Enqueue Jobs   │                        │
+│                  │  to PostgreSQL  │                        │
+│                  └────────┬────────┘                        │
+└───────────────────────────┼─────────────────────────────────┘
+                            │
+                            ▼
+                    ┌─────────────┐
+                    │  Workers    │ (process jobs)
+                    └─────────────┘
+```
+
 ## Production Deployment
 
 ### Building and Running
@@ -396,22 +460,22 @@ make docker-logs
 ### Production Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Docker Compose Stack                      │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐  │
-│  │  streamvault-api│  │streamvault-worker│  │streamvault-db│ │
-│  │    (FastAPI)    │  │  (Job Workers)   │  │ (PostgreSQL) │ │
-│  │   Port: 8000    │  │                  │  │  Port: 5432  │ │
-│  └────────┬────────┘  └────────┬─────────┘  └──────┬──────┘ │
-│           │                    │                    │        │
-│           └────────────────────┴────────────────────┘        │
-│                              │                               │
-│                    ┌─────────▼─────────┐                    │
-│                    │  ./data/postgres  │ (DB persistence)   │
-│                    │  ./data/shared    │ (Images/files)     │
-│                    └───────────────────┘                    │
-└─────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────┐
+│                        Docker Compose Stack                            │
+├───────────────────────────────────────────────────────────────────────┤
+│  ┌───────────────┐ ┌─────────────────┐ ┌───────────────┐ ┌──────────┐ │
+│  │streamvault-api│ │streamvault-worker│ │streamvault-   │ │streamvault│ │
+│  │   (FastAPI)   │ │  (Job Workers)   │ │  scheduler    │ │    -db   │ │
+│  │  Port: 8000   │ │                  │ │ (APScheduler) │ │(PostgreSQL)│ │
+│  └───────┬───────┘ └────────┬─────────┘ └───────┬───────┘ └─────┬────┘ │
+│          │                  │                   │               │      │
+│          └──────────────────┴───────────────────┴───────────────┘      │
+│                                     │                                   │
+│                           ┌─────────▼─────────┐                        │
+│                           │  ./data/postgres  │ (DB persistence)       │
+│                           │  ./data/shared    │ (Images/files)         │
+│                           └───────────────────┘                        │
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Container Details
@@ -420,6 +484,7 @@ make docker-logs
 |-----------|-------------|--------------|
 | `streamvault-api` | FastAPI application server | host |
 | `streamvault-worker` | Background job workers | host |
+| `streamvault-scheduler` | APScheduler job scheduler | host |
 | `streamvault-db` | PostgreSQL 16 database | bridge (port 5432) |
 
 ### Data Persistence
