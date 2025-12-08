@@ -73,6 +73,28 @@ services:
     command: >
       sh -c "uv run watchfiles 'python -m app.workers.cli' app/"
 
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: streamvault-scheduler-dev
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-streamvault}
+    volumes:
+      - ./app:/app/app:ro
+    command: >
+      sh -c "uv run watchfiles 'python -m app.workers.scheduler_cli' app/"
+
   loki:
     image: grafana/loki:3.3.2
     container_name: streamvault-loki-dev

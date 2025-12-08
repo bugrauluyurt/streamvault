@@ -34,6 +34,10 @@ case "$1" in
         echo "Starting ${QUEUE_WORKERS:-2} worker(s)..."
         exec python -m app.workers.cli
         ;;
+    scheduler)
+        echo "Starting scheduler..."
+        exec python -m app.workers.scheduler_cli
+        ;;
     *)
         exec "$@"
         ;;

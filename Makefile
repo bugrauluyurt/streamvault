@@ -1,4 +1,4 @@
-.PHONY: install dev db-up db-down lint format typecheck check test test-cov migrate upgrade downgrade up hooks-install hooks-uninstall playwright-install worker docker-build docker-up docker-down docker-logs docker-logs-api docker-logs-worker docker-dev docker-dev-down docker-dev-logs logs-up logs-up-dev logs-ui
+.PHONY: install dev db-up db-down lint format typecheck check test test-cov migrate upgrade downgrade up hooks-install hooks-uninstall playwright-install worker scheduler docker-build docker-up docker-down docker-logs docker-logs-api docker-logs-worker docker-logs-scheduler docker-dev docker-dev-down docker-dev-logs logs-up logs-up-dev logs-ui
 
 install:
 	uv sync
@@ -52,6 +52,9 @@ playwright-install:
 worker:
 	uv run python -m app.workers.cli
 
+scheduler:
+	uv run python -m app.workers.scheduler_cli
+
 docker-build:
 	docker-compose build
 
@@ -69,6 +72,9 @@ docker-logs-api:
 
 docker-logs-worker:
 	docker-compose logs -f worker
+
+docker-logs-scheduler:
+	docker-compose logs -f scheduler
 
 docker-dev:
 	docker-compose -f docker-compose.dev.yml up --build
