@@ -190,7 +190,7 @@ All configuration is done via environment variables in `.env`:
 | `POSTGRES_DB`         | `streamvault`            | Database name                           |
 | `POSTGRES_HOST`       | `localhost`              | Database host                           |
 | `POSTGRES_PORT`       | `5432`                   | Database port                           |
-| `OLLAMA_HOST`         | `http://localhost:11434` | Ollama API endpoint                     |
+| `APP_OLLAMA_HOST`     | `http://localhost:11434` | Ollama API endpoint (use `http://host.docker.internal:11434` for Docker) |
 | `OLLAMA_MODEL`        | `qwen3:30b`              | Default model for extraction            |
 | `TMDB_API_KEY`        | -                        | TMDB API key (required for TMDB routes) |
 | `QUEUE_WORKERS`       | `2`                      | Number of worker tasks per process      |
