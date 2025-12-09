@@ -1,4 +1,7 @@
-.PHONY: install dev db-up db-down lint format typecheck check test test-cov migrate upgrade downgrade up hooks-install hooks-uninstall playwright-install worker scheduler docker-build docker-up docker-down docker-logs docker-logs-api docker-logs-worker docker-logs-scheduler docker-dev docker-dev-down docker-dev-logs logs-up logs-up-dev logs-ui
+.PHONY: install dev db-up db-down lint format typecheck check test test-cov migrate upgrade downgrade up hooks-install hooks-uninstall playwright-install worker scheduler docker-build docker-build-tag docker-up docker-down docker-logs docker-logs-api docker-logs-worker docker-logs-scheduler docker-dev docker-dev-down docker-dev-logs logs-up logs-up-dev logs-ui docker-deploy docker-recreate docker-prune
+
+# Generate timestamp tag for docker images
+IMAGE_TAG ?= $(shell date +%Y%m%d-%H%M%S)
 
 install:
 	uv sync
@@ -56,7 +59,11 @@ scheduler:
 	uv run python -m app.workers.scheduler_cli
 
 docker-build:
-	docker compose build
+	IMAGE_TAG=latest docker compose build
+
+docker-build-tag:
+	IMAGE_TAG=$(IMAGE_TAG) docker compose build
+	@echo "Built images with tag: $(IMAGE_TAG)"
 
 docker-up:
 	docker compose up -d
@@ -93,3 +100,13 @@ logs-up-dev:
 
 logs-ui:
 	open http://localhost:3001
+
+docker-deploy:
+	@if [ -z "$(TAG)" ]; then echo "Usage: make docker-deploy TAG=20251209-103045"; exit 1; fi
+	IMAGE_TAG=$(TAG) docker compose up -d
+
+docker-recreate:
+	docker compose up -d --force-recreate
+
+docker-prune:
+	docker image prune -f

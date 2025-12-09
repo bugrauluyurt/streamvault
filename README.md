@@ -104,7 +104,8 @@ API docs: http://localhost:8000/docs
 
 | Command                      | Description                             |
 | ---------------------------- | --------------------------------------- |
-| `make docker-build`          | Build Docker images                     |
+| `make docker-build`          | Build Docker images with `latest` tag   |
+| `make docker-build-tag`      | Build with timestamp tag (YYYYMMDD-HHMMSS) |
 | `make docker-up`             | Start all containers (production mode)  |
 | `make docker-down`           | Stop all containers                     |
 | `make docker-logs`           | Follow logs from all containers         |
@@ -117,6 +118,9 @@ API docs: http://localhost:8000/docs
 | `make logs-up`               | Start logging stack (Loki + Grafana)    |
 | `make logs-up-dev`           | Start logging stack for dev environment |
 | `make logs-ui`               | Open Grafana UI in browser              |
+| `make docker-deploy TAG=xxx` | Deploy with specific image tag          |
+| `make docker-recreate`       | Force recreate containers               |
+| `make docker-prune`          | Remove dangling Docker images           |
 
 ## Project Structure
 
@@ -453,7 +457,20 @@ make docker-logs-scheduler
 
 ## Production Deployment
 
-### Building and Running
+### Building and Tagging Images
+
+Images are tagged with timestamps in format `YYYYMMDD-HHMMSS`:
+
+```bash
+# Build with auto-generated timestamp tag
+make docker-build-tag
+# Output: Built images with tag: 20251209-103045
+
+# Build with latest tag (default)
+make docker-build
+```
+
+### Starting Services
 
 ```bash
 # 1. Copy and configure environment
@@ -461,13 +478,46 @@ cp .env.example .env
 # Edit .env with production values (strong passwords, real API keys, etc.)
 
 # 2. Build production images
-make docker-build
+make docker-build-tag
 
 # 3. Start all services
 make docker-up
 
 # View logs
 make docker-logs
+```
+
+### Deploying a Specific Version
+
+```bash
+# Deploy using a specific tag
+make docker-deploy TAG=20251209-103045
+```
+
+### Updating Running Containers
+
+When you've built new images and want to update running containers:
+
+```bash
+# Option 1: Force recreate all services (recommended)
+make docker-recreate
+
+# Option 2: Recreate specific services only
+docker compose up -d --force-recreate api worker scheduler
+
+# Option 3: Full restart
+make docker-down
+make docker-up
+```
+
+### Cleaning Up Old Images
+
+```bash
+# Remove dangling/unused images
+make docker-prune
+
+# More aggressive cleanup (removes all unused images)
+docker image prune -a
 ```
 
 ### Production Architecture
