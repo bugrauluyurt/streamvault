@@ -1,6 +1,6 @@
 ![StreamVault](assets/streamvault_logo_wide.png)
 
-A streaming service data aggregator that scrapes, validates, and stores movie and TV show information from platforms like JustWatch. Uses LLM-powered extraction (via Ollama) and TMDB for data validation and enrichment.
+A streaming service data aggregator that scrapes, validates, and stores movie and TV show information from platforms like JustWatch. Uses LLM-powered extraction (via Ollama or Claude CLI) and TMDB for data validation and enrichment.
 
 ## Prerequisites
 
@@ -152,14 +152,31 @@ streamvault/
 - **ty** - Type checker
 - **pytest** - Testing framework
 - **LangChain** - LLM orchestration
-- **Ollama** - Local LLM runtime
+- **Ollama** - Local LLM runtime (default provider)
+- **Claude CLI** - Alternative LLM provider
 - **Playwright** - Browser automation
 
-## Ollama Setup
+## LLM Provider Setup
 
-StreamVault requires an external Ollama instance for LLM-powered data extraction. Ollama runs separately on the host machine (not in Docker).
+StreamVault supports two LLM providers for data extraction: **Ollama** (default) and **Claude CLI**.
 
-### Installation
+### Selecting a Provider
+
+Set the provider in your `.env` file:
+
+```bash
+# Use Ollama (default)
+APP_LLM_PROVIDER=ollama
+
+# Use Claude CLI
+APP_LLM_PROVIDER=claude
+```
+
+### Option A: Ollama (Default)
+
+Ollama runs separately on the host machine (not in Docker).
+
+**Installation:**
 
 Install Ollama from [ollama.com](https://ollama.com) and pull the required model:
 
@@ -167,17 +184,29 @@ Install Ollama from [ollama.com](https://ollama.com) and pull the required model
 ollama pull qwen3:30b
 ```
 
-### Configuration
-
-Set the Ollama endpoint in your `.env` file:
+**Configuration:**
 
 ```bash
-# Local Ollama (production)
-OLLAMA_HOST=http://localhost:11434
-
-# Remote Ollama (development)
-OLLAMA_HOST=http://10.0.0.139:11434
+APP_LLM_PROVIDER=ollama
+APP_OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=qwen3:30b
 ```
+
+### Option B: Claude CLI
+
+Uses the `claude` command-line tool for inference.
+
+**Installation:**
+
+Install Claude Code CLI from [claude.ai/code](https://claude.ai/code).
+
+**Configuration:**
+
+```bash
+APP_LLM_PROVIDER=claude
+```
+
+Claude CLI runs in headless mode with no tools enabled, using `--dangerously-skip-permissions` for non-interactive operation.
 
 ## Environment Variables
 
@@ -190,6 +219,7 @@ All configuration is done via environment variables in `.env`:
 | `POSTGRES_DB`         | `streamvault`            | Database name                           |
 | `POSTGRES_HOST`       | `localhost`              | Database host                           |
 | `POSTGRES_PORT`       | `5432`                   | Database port                           |
+| `APP_LLM_PROVIDER`    | `ollama`                 | LLM provider (`ollama` or `claude`)     |
 | `APP_OLLAMA_HOST`     | `http://localhost:11434` | Ollama API endpoint (use `http://host.docker.internal:11434` for Docker) |
 | `OLLAMA_MODEL`        | `qwen3:30b`              | Default model for extraction            |
 | `TMDB_API_KEY`        | -                        | TMDB API key (required for TMDB routes) |
@@ -572,8 +602,9 @@ POSTGRES_DB=streamvault
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 
-# Ollama LLM
-OLLAMA_HOST=http://localhost:11434
+# LLM Provider (ollama or claude)
+APP_LLM_PROVIDER=ollama
+APP_OLLAMA_HOST=http://localhost:11434
 OLLAMA_MODEL=qwen3:30b
 
 # External APIs

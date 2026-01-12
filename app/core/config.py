@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     postgres_host: str = "localhost"
     postgres_port: int = 5432
 
+    llm_provider: str = "ollama"
     ollama_host: str = "http://localhost:11434"
     ollama_model: str = "qwen3:30b"
 
