@@ -196,6 +196,9 @@ All configuration is done via environment variables in `.env`:
 | `QUEUE_WORKERS`       | `2`                      | Number of worker tasks per process      |
 | `QUEUE_POLL_INTERVAL` | `1.0`                    | Seconds between queue polls             |
 | `SHARED_DIR`          | `/app/data/shared`       | Shared storage directory                |
+| `POSTGRES_DATA_DIR`   | `./data/postgres`        | PostgreSQL data directory               |
+| `LOKI_DATA_DIR`       | `./data/loki`            | Loki log storage directory              |
+| `GRAFANA_DATA_DIR`    | `./data/grafana`         | Grafana data directory                  |
 
 ## API Endpoints
 
