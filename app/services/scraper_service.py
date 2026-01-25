@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import logging
+import random
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import TypeVar
@@ -18,6 +19,16 @@ from app.services.site_origins.base import SiteOrigin, TopTenResult
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
+
+# Retry settings
+MAX_RETRIES = 3
+BASE_DELAY = 5  # seconds
+OVERLOAD_INDICATORS = ["overloaded", "too many requests", "rate limit", "503", "429"]
+
+# Request pacing (to avoid rate limits)
+PRE_REQUEST_DELAY = (2, 5)  # seconds (min, max) - wait before each request
+POST_LOAD_DELAY = (5, 8)  # seconds (min, max) - wait after page loads
+POST_EXTRACT_DELAY = (1, 3)  # seconds (min, max) - wait after extraction
 
 
 class ScraperService:
@@ -102,15 +113,59 @@ class ScraperService:
         await browser.close()
         await p.stop()
 
+    def _is_overloaded(self, content: str) -> bool:
+        """Check if page content indicates server overload."""
+        content_lower = content.lower()
+        return any(indicator in content_lower for indicator in OVERLOAD_INDICATORS)
+
+    async def _navigate_with_retry(
+        self, page: Page, url: str, wait_selector: str | None = None
+    ) -> bool:
+        """Navigate to URL with retry logic for overloaded errors. Returns True if successful."""
+        for attempt in range(MAX_RETRIES):
+            try:
+                await page.goto(url, wait_until="domcontentloaded")
+
+                if wait_selector:
+                    with contextlib.suppress(Exception):
+                        await page.wait_for_selector(wait_selector, timeout=10000)
+
+                content = await page.content()
+                if self._is_overloaded(content):
+                    delay = BASE_DELAY * (2**attempt) + random.uniform(0, 2)
+                    logger.warning(
+                        "Server overloaded for %s, retry %d/%d in %.1fs",
+                        url,
+                        attempt + 1,
+                        MAX_RETRIES,
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+
+                return True
+
+            except Exception as e:
+                delay = BASE_DELAY * (2**attempt) + random.uniform(0, 2)
+                logger.warning(
+                    "Error loading %s: %s, retry %d/%d in %.1fs",
+                    url,
+                    str(e)[:100],
+                    attempt + 1,
+                    MAX_RETRIES,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+
+        logger.error("Failed to load %s after %d retries", url, MAX_RETRIES)
+        return False
+
     async def scrape_page(self, url: str, wait_selector: str | None = None) -> str:
         p, browser, context, page = await self._create_page()
         try:
-            await page.goto(url, wait_until="domcontentloaded")
-
-            if wait_selector:
-                with contextlib.suppress(Exception):
-                    await page.wait_for_selector(wait_selector, timeout=10000)
-
+            success = await self._navigate_with_retry(page, url, wait_selector)
+            if not success:
+                return ""
             return await page.content()
         finally:
             await self._cleanup(p, browser, context)
@@ -155,7 +210,7 @@ class ScraperService:
         self,
         url: str,
         origin: SiteOrigin,
-        max_concurrent: int = 5,
+        max_concurrent: int = 3,
         max_items: int | None = None,
         download_tile_images: bool = False,
         download_cast_images: bool = False,
@@ -232,15 +287,39 @@ class ScraperService:
                 if not show.detail_url:
                     return show
                 async with semaphore:
+                    # Pre-request delay to pace requests
+                    await asyncio.sleep(random.uniform(*PRE_REQUEST_DELAY))
                     logger.info("Fetching: %s -> %s", show.title, show.detail_url)
                     detail_page = await context.new_page()
                     try:
-                        await detail_page.goto(show.detail_url, wait_until="domcontentloaded")
-                        if detail_wait_selector:
-                            with contextlib.suppress(Exception):
-                                await detail_page.wait_for_selector(
-                                    detail_wait_selector, timeout=10000
+                        # Retry loop for overloaded pages
+                        for attempt in range(MAX_RETRIES):
+                            await detail_page.goto(show.detail_url, wait_until="domcontentloaded")
+                            if detail_wait_selector:
+                                with contextlib.suppress(Exception):
+                                    await detail_page.wait_for_selector(
+                                        detail_wait_selector, timeout=10000
+                                    )
+
+                            # Check for overload
+                            content = await detail_page.content()
+                            if self._is_overloaded(content):
+                                delay = BASE_DELAY * (2**attempt) + random.uniform(0, 2)
+                                logger.warning(
+                                    "Server overloaded for %s, retry %d/%d in %.1fs",
+                                    show.title,
+                                    attempt + 1,
+                                    MAX_RETRIES,
+                                    delay,
                                 )
+                                await asyncio.sleep(delay)
+                                continue
+                            break
+                        else:
+                            logger.error("Failed to load %s after retries (overloaded)", show.title)
+                            failed_count += 1
+                            return show
+
                         json_ld_check_js = """() => {
                             const scripts = document.querySelectorAll(
                                 'script[type="application/ld+json"]'
@@ -256,7 +335,8 @@ class ScraperService:
                         }"""
                         with contextlib.suppress(Exception):
                             await detail_page.wait_for_function(json_ld_check_js, timeout=15000)
-                        await asyncio.sleep(3)
+                        # Post-load delay before extraction
+                        await asyncio.sleep(random.uniform(*POST_LOAD_DELAY))
                         detailed = await origin.extract_detail_page(detail_page, show)
                         if detailed and detailed.overview:
                             successful_count += 1
@@ -264,6 +344,8 @@ class ScraperService:
                             final_show = detailed.model_copy(update={"position": show.position})
                             if on_item_ready:
                                 await on_item_ready(final_show)
+                            # Post-extract delay before next request
+                            await asyncio.sleep(random.uniform(*POST_EXTRACT_DELAY))
                             return final_show
                         failed_count += 1
                         return show
@@ -318,7 +400,7 @@ class ScraperService:
     async def extract_top_ten(
         self,
         origin: SiteOrigin,
-        max_concurrent: int = 5,
+        max_concurrent: int = 3,
         on_item_ready: Callable[[ScrapeShow, str], Awaitable[None]] | None = None,
     ) -> TopTenResult | None:
         url = origin.get_top_ten_url()
@@ -353,15 +435,38 @@ class ScraperService:
                 if not show.detail_url:
                     return show
                 async with semaphore:
+                    # Pre-request delay to pace requests
+                    await asyncio.sleep(random.uniform(*PRE_REQUEST_DELAY))
                     logger.info("Fetching: %s -> %s", show.title, show.detail_url)
                     detail_page = await context.new_page()
                     try:
-                        await detail_page.goto(show.detail_url, wait_until="domcontentloaded")
-                        if detail_wait_selector:
-                            with contextlib.suppress(Exception):
-                                await detail_page.wait_for_selector(
-                                    detail_wait_selector, timeout=10000
+                        # Retry loop for overloaded pages
+                        for attempt in range(MAX_RETRIES):
+                            await detail_page.goto(show.detail_url, wait_until="domcontentloaded")
+                            if detail_wait_selector:
+                                with contextlib.suppress(Exception):
+                                    await detail_page.wait_for_selector(
+                                        detail_wait_selector, timeout=10000
+                                    )
+
+                            # Check for overload
+                            content = await detail_page.content()
+                            if self._is_overloaded(content):
+                                delay = BASE_DELAY * (2**attempt) + random.uniform(0, 2)
+                                logger.warning(
+                                    "Server overloaded for %s, retry %d/%d in %.1fs",
+                                    show.title,
+                                    attempt + 1,
+                                    MAX_RETRIES,
+                                    delay,
                                 )
+                                await asyncio.sleep(delay)
+                                continue
+                            break
+                        else:
+                            logger.error("Failed to load %s after retries (overloaded)", show.title)
+                            return show
+
                         json_ld_check_js = """() => {
                             const scripts = document.querySelectorAll(
                                 'script[type="application/ld+json"]'
@@ -377,13 +482,16 @@ class ScraperService:
                         }"""
                         with contextlib.suppress(Exception):
                             await detail_page.wait_for_function(json_ld_check_js, timeout=15000)
-                        await asyncio.sleep(3)
+                        # Post-load delay before extraction
+                        await asyncio.sleep(random.uniform(*POST_LOAD_DELAY))
                         detailed = await origin.extract_detail_page(detail_page, show)
                         if detailed and detailed.overview:
                             logger.info("Extracted: %s", show.title)
                             final_show = detailed.model_copy(update={"position": show.position})
                             if on_item_ready:
                                 await on_item_ready(final_show, show_type)
+                            # Post-extract delay before next request
+                            await asyncio.sleep(random.uniform(*POST_EXTRACT_DELAY))
                             return final_show
                         return show
                     except Exception as e:

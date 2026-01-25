@@ -1,112 +1,124 @@
-.PHONY: install dev db-up db-down lint format typecheck check test test-cov migrate upgrade downgrade up hooks-install hooks-uninstall playwright-install worker scheduler docker-build docker-build-tag docker-up docker-down docker-logs docker-logs-api docker-logs-worker docker-logs-scheduler docker-dev docker-dev-down docker-dev-logs logs-up logs-up-dev logs-ui docker-deploy docker-recreate docker-prune
+.PHONY: install up down logs check lint format typecheck test test-cov migrate upgrade downgrade hooks-install hooks-uninstall playwright-install api worker scheduler
 
-# Generate timestamp tag for docker images
-IMAGE_TAG ?= $(shell date +%Y%m%d-%H%M%S)
+# =============================================================================
+# Main Commands
+# =============================================================================
 
-install:
-	uv sync
-
-dev:
-	uv run uvicorn app.main:app --reload
-
-db-up:
-	docker compose up -d db
-
-db-down:
-	docker compose down db
-
-lint:
-	uv run ruff check --fix .
-
-format:
-	uv run ruff format .
-
-typecheck:
-	uv run ty check
-
-check: format lint typecheck
-
-test:
-	uv run pytest
-
-test-cov:
-	uv run pytest --cov=app --cov-report=html
-
-migrate:
-	uv run alembic revision --autogenerate -m "$(msg)"
-
-upgrade:
-	uv run alembic upgrade head
-
-downgrade:
-	uv run alembic downgrade -1
-
-up: db-up upgrade dev
-
-hooks-install:
-	uv run pre-commit install
-
-hooks-uninstall:
-	uv run pre-commit uninstall
-
-playwright-install:
-	uv run playwright install chromium
-
-worker:
-	uv run python -m app.workers.cli
-
-scheduler:
-	uv run python -m app.workers.scheduler_cli
-
-docker-build:
-	IMAGE_TAG=latest docker compose build
-
-docker-build-tag:
-	IMAGE_TAG=$(IMAGE_TAG) docker compose build
-	@echo "Built images with tag: $(IMAGE_TAG)"
-
-docker-up:
+up: ## Start everything (Docker + native services)
 	docker compose up -d
+	@echo "Waiting for database..."
+	@sleep 3
+	uv run alembic upgrade head
+	@echo "Starting native services..."
+	@nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/streamvault-api.log 2>&1 &
+	@nohup uv run python -m app.workers.cli > /tmp/streamvault-worker.log 2>&1 &
+	@nohup uv run python -m app.workers.scheduler_cli > /tmp/streamvault-scheduler.log 2>&1 &
+	@sleep 2
+	@echo "All services started!"
+	@echo "API: http://localhost:8000"
+	@echo "Grafana: http://localhost:3001"
+	@echo "Logs: /tmp/streamvault-*.log"
 
-docker-down:
+down: ## Stop everything
+	-pkill -f "uvicorn app.main" 2>/dev/null || true
+	-pkill -f "app.workers.cli" 2>/dev/null || true
+	-pkill -f "app.workers.scheduler_cli" 2>/dev/null || true
 	docker compose down
 
-docker-logs:
+logs: ## Follow Docker logs
 	docker compose logs -f
 
-docker-logs-api:
-	docker compose logs -f api
+status: ## Show running services
+	@echo "=== Docker ===" && docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "(NAME|streamvault)" || true
+	@echo ""
+	@echo "=== Native ===" && ps aux | grep -E "(uvicorn|workers)" | grep -v grep || echo "No native services running"
 
-docker-logs-worker:
-	docker compose logs -f worker
+# =============================================================================
+# Native Services
+# =============================================================================
 
-docker-logs-scheduler:
-	docker compose logs -f scheduler
+api: ## Run API server
+	uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 
-docker-dev:
-	docker compose -f docker-compose.dev.yml up --build
+api-dev: ## Run API with hot-reload
+	uv run uvicorn app.main:app --reload
 
-docker-dev-down:
-	docker compose -f docker-compose.dev.yml down
+worker: ## Run background workers
+	uv run python -m app.workers.cli
 
-docker-dev-logs:
-	docker compose -f docker-compose.dev.yml logs -f
+scheduler: ## Run scheduler
+	uv run python -m app.workers.scheduler_cli
 
-logs-up:
-	docker compose up -d loki promtail grafana
+# =============================================================================
+# Database
+# =============================================================================
 
-logs-up-dev:
-	docker compose -f docker-compose.dev.yml up -d loki promtail grafana
+db-up: ## Start only PostgreSQL
+	docker compose up -d db
 
-logs-ui:
-	open http://localhost:3001
+migrate: ## Create migration (usage: make migrate msg="description")
+	uv run alembic revision --autogenerate -m "$(msg)"
 
-docker-deploy:
-	@if [ -z "$(TAG)" ]; then echo "Usage: make docker-deploy TAG=20251209-103045"; exit 1; fi
-	IMAGE_TAG=$(TAG) docker compose up -d
+upgrade: ## Apply pending migrations
+	uv run alembic upgrade head
 
-docker-recreate:
-	docker compose up -d --force-recreate
+downgrade: ## Rollback last migration
+	uv run alembic downgrade -1
 
-docker-prune:
-	docker image prune -f
+# =============================================================================
+# Code Quality
+# =============================================================================
+
+install: ## Install Python dependencies
+	uv sync
+
+check: format lint typecheck ## Run all checks
+
+lint: ## Run linter with auto-fix
+	uv run ruff check --fix .
+
+format: ## Format code
+	uv run ruff format .
+
+typecheck: ## Run type checker
+	uv run ty check
+
+# =============================================================================
+# Testing
+# =============================================================================
+
+test: ## Run tests
+	uv run pytest
+
+test-cov: ## Run tests with coverage
+	uv run pytest --cov=app --cov-report=html
+
+# =============================================================================
+# Setup
+# =============================================================================
+
+hooks-install: ## Install pre-commit hooks
+	uv run pre-commit install
+
+hooks-uninstall: ## Uninstall pre-commit hooks
+	uv run pre-commit uninstall
+
+playwright-install: ## Install Playwright browsers
+	uv run playwright install chromium
+
+# =============================================================================
+# Logs UI
+# =============================================================================
+
+logs-ui: ## Open Grafana in browser
+	@echo "Opening http://localhost:3001"
+	@command -v open >/dev/null && open http://localhost:3001 || echo "Visit http://localhost:3001"
+
+# =============================================================================
+# Help
+# =============================================================================
+
+help: ## Show this help
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+.DEFAULT_GOAL := help
