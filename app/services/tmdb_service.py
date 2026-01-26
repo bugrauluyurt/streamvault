@@ -176,6 +176,17 @@ class TMDBService:
         data = await self._request("GET", f"/tv/{tv_id}", params=params)
         return TMDBTVDetails.model_validate(data)
 
+    async def get_tv_season(
+        self,
+        tv_id: int,
+        season_number: int,
+        language: str = "en-US",
+    ) -> dict:
+        """Get season details including episodes."""
+        params: dict[str, str] = {"language": language}
+        data = await self._request("GET", f"/tv/{tv_id}/season/{season_number}", params=params)
+        return data
+
     async def close(self):
         if self._client:
             await self._client.aclose()

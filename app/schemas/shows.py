@@ -31,9 +31,10 @@ class TopTenShowItem(BaseModel):
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
     id: int
+    tmdb_id: str | None
     position: int
     show_type: ShowType
-    show: ScrapedShowResponse
+    details: dict
 
 
 class TopTenShowsResponse(BaseModel):
@@ -41,3 +42,19 @@ class TopTenShowsResponse(BaseModel):
 
     movies: list[TopTenShowItem]
     series: list[TopTenShowItem]
+
+
+class PopularShowItem(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+    id: int
+    tmdb_id: str | None
+    position: int
+    show_type: ShowType
+    details: dict
+
+
+class PopularShowsResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    items: list[PopularShowItem]
